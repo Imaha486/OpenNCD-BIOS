@@ -1,0 +1,45 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the m68k assembler
+        run: sudo apt-get update && sudo apt-get install -y binutils-m68k-linux-gnu
+
+      - name: Build
+        run: |
+          python3 build.py
+          sha256sum out/neocd.bin out/neocd_be.bin | tee out/SHA256SUMS
+
+      - name: Package
+        run: |
+          name="OpenNCD_BIOS_${GITHUB_REF_NAME//\//-}"
+          mkdir -p "dist/$name"
+          cp out/neocd.bin out/neocd_be.bin out/SHA256SUMS "dist/$name/"
+          cp README.md README_ja.md LICENSE CHANGELOG.md "dist/$name/"
+          cp -r docs "dist/$name/"
+          (cd dist && zip -r "$name.zip" "$name")
+          echo "PKG=dist/$name.zip" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenNCD_BIOS
+          path: ${{ env.PKG }}
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$PKG" --title "OpenNCD BIOS ${GITHUB_REF_NAME#v}" --notes-file CHANGELOG.md
