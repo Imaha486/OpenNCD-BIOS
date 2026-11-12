@@ -21,13 +21,13 @@ The original BIOS images were **never disassembled, traced or copied from**. The
 
 ## Where the image matches an original ROM, and why
 
-Run `tools/similarity_check.py` against your own reference ROM to reproduce this. For version 2.1, against the two reference images available to the author:
+Run `tools/similarity_check.py` against your own reference ROM to reproduce this. For version 2.3, against the two reference images available to the author:
 
 | Measure | Result |
 |---|---|
-| Code bytes in use (tables excluded) | 7,144 |
-| Bytes equal at the same offset | 55 at most |
-| Runs of 12 or more bytes that also occur anywhere in the reference | 21 at most |
+| Code bytes in use (tables excluded) | 7,384 |
+| Bytes equal at the same offset | 57 at most |
+| Runs of 12 or more bytes that also occur anywhere in the reference | 22 at most |
 
 The shared runs fall into these groups:
 
@@ -46,9 +46,9 @@ Everything else is original, including the random table at `$C04200`, the font, 
 
 ## The landmark block at `$C0B000`
 
-Versions of Raine newer than NeoRaine 1.4.3 do not use fixed addresses. They scan the BIOS for short instruction sequences to find the loading screen routines, the palette and the tiles. To give that scan something to find, `bios.s` contains a block of 8 to 16 byte sequences built from the search conditions in Raine's source code. They were not copied from an original BIOS, but because Raine's conditions were derived from one, the same sequences also exist there.
+Versions of Raine newer than NeoRaine 1.4.3 do not use fixed addresses (confirmed with Raine 0.98, which finds the routines through this block). They scan the BIOS for short instruction sequences to find the loading screen routines, the palette and the tiles. To give that scan something to find, `bios.s` contains a block of 8 to 16 byte sequences built from the search conditions in Raine's source code. They were not copied from an original BIOS, but because Raine's conditions were derived from one, the same sequences also exist there.
 
-Only the jump instructions in that block are ever executed. If you prefer an image without it, delete the block marked "Landmarks" in `src/bios.s` and the matching assertions in `build.py`. MAME, the NeoCD libretro core and NeoRaine 1.4.3 do not use it.
+Only the jump instructions in that block are ever executed. If you prefer an image without it, delete the block marked "Landmarks" in `src/bios.s` and the matching assertions in `build.py`. MAME, the NeoCD libretro core and NeoRaine 1.4.3 do not use it; Raine 0.98 will not start without it.
 
 ## Not legal advice
 
@@ -77,13 +77,13 @@ OpenNCD BIOS は、次の 4 種類の情報だけをもとに書いています�
 
 ## 純正 ROM と一致する箇所とその理由
 
-`tools/similarity_check.py` に手元の参照 ROM を与えれば、同じ検査を再現できます。バージョン 2.1 を、作者の手元にある 2 つの参照イメージと比べた結果は次のとおりです。
+`tools/similarity_check.py` に手元の参照 ROM を与えれば、同じ検査を再現できます。バージョン 2.3 を、作者の手元にある 2 つの参照イメージと比べた結果は次のとおりです。
 
 | 項目 | 結果 |
 |---|---|
-| 使用中のコードのバイト数（数表を除く） | 7,144 |
-| 同じ番地で一致するバイト数 | 最大 55 |
-| 参照側のどこかにも現れる 12 バイト以上の並び | 最大 21 か所 |
+| 使用中のコードのバイト数（数表を除く） | 7,384 |
+| 同じ番地で一致するバイト数 | 最大 57 |
+| 参照側のどこかにも現れる 12 バイト以上の並び | 最大 22 か所 |
 
 共通の並びの内訳は次のとおりです。
 
@@ -102,9 +102,9 @@ OpenNCD BIOS は、次の 4 種類の情報だけをもとに書いています�
 
 ## `$C0B000` の目印ブロック
 
-NeoRaine 1.4.3 より後の Raine は固定番地を使わず、BIOS の中から短い命令の並びを検索して、ロード画面のルーチン、パレット、タイルの場所を割り出します。その検索に引っかかるよう、`bios.s` には 8〜16 バイトの並びを集めたブロックを置いています。これは Raine のソースに書かれた検索条件から作ったもので、純正 BIOS から写したものではありません。ただし Raine の検索条件が純正 BIOS をもとに決められているため、結果として純正側にも同じ並びがあります。
+NeoRaine 1.4.3 より後の Raine は固定番地を使わず（Raine 0.98 がこのブロック経由でルーチンを見つけることを確認済み）、BIOS の中から短い命令の並びを検索して、ロード画面のルーチン、パレット、タイルの場所を割り出します。その検索に引っかかるよう、`bios.s` には 8〜16 バイトの並びを集めたブロックを置いています。これは Raine のソースに書かれた検索条件から作ったもので、純正 BIOS から写したものではありません。ただし Raine の検索条件が純正 BIOS をもとに決められているため、結果として純正側にも同じ並びがあります。
 
-このブロックで実際に実行されるのはジャンプ命令だけです。目印のないイメージがよければ、`src/bios.s` の "Landmarks" と書かれたブロックと、`build.py` の対応する検査を削除してください。MAME、NeoCD libretro コア、NeoRaine 1.4.3 はこの目印を使いません。
+このブロックで実際に実行されるのはジャンプ命令だけです。目印のないイメージがよければ、`src/bios.s` の "Landmarks" と書かれたブロックと、`build.py` の対応する検査を削除してください。MAME、NeoCD libretro コア、NeoRaine 1.4.3 はこの目印を使いません。Raine 0.98 はこれがないと起動しません。
 
 ## 法的助言ではありません
 

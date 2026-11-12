@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3
+
+- Fixed: Raine 0.98 could not start a game. Current Raine versions load the game themselves and then start the BIOS at `BIOSF_RESETGAME` (`$C00582`) without patching it, so the BIOS took itself to be on real CD hardware and waited for a drive that Raine does not emulate. The BIOS now recognises this way of starting.
+- Fixed: sprite data sent with `BIOSF_UPLOAD` appeared garbled in Raine 0.98 (the title logo of The King of Fighters '94). Sprite memory is now written in whole words; Raine places single bytes differently.
+- Changed: when the emulator loads the files but does not perform uploads itself (Raine 0.98), `BIOSF_UPLOAD` goes through the transfer window as in hardware mode.
+
+## 2.2
+
+- Fixed: in hardware mode the game's vertical blank handler could run while the BIOS was still loading the game, on emulators that deliver the vertical blank regardless of the interrupt mask the BIOS sets. The handler then ran in a half-loaded program, and the result was a hang at the loading screen or `SYSTEM HALT - EXCEPTION` (reported with a MAME-based system: vector 04, program counter in the stack area). The BIOS now takes over the vertical blank vector for the whole load and gives it back afterwards, as a console does, and no longer relies on the interrupt level or the mask register for this.
+- Fixed: while a program file is loaded over the vector table, the CD interrupt vectors are no longer overwritten even for a moment, and the program's vertical blank vector takes effect only when loading has finished.
+- Fixed: the vector number on the exception screen was printed on top of the word EXCEPTION ("EXCEPT04N"). It now follows the text.
+
 ## 2.1
 
 Found by a code audit and a new self-test disc (`tests/`), not by a game report.

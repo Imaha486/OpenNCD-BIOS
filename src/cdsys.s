@@ -79,6 +79,7 @@
         .equ    DIR_MORE,       PV_BASE+0xE8    | directory did not fit in the cache
         .equ    PAT_FILL,       PV_BASE+0xE9    | bytes in PAT_REC
         .equ    PAT_REC,        PV_BASE+0xEA    | one 10 byte record (..0xF3)
+        .equ    LD_BUSY,        PV_BASE+0xF4    | the BIOS is loading from the disc
         .equ    DEFER_N,        PV_BASE+0xCF
         .equ    DEFER_LIST,     PV_BASE+0xD0    | up to 8 entry pointers
 
@@ -693,7 +694,32 @@ sw_done:
         rts
 
 | program RAM, 2 MiB
-sw_prg: move.l  #0x200000,d2
+sw_prg: cmp.l   #0x80,d1
+        bcc     sw_prg2
+        tst.b   LD_BUSY
+        beq     sw_prg2
+        | Loading over the vector table while interrupts are live: go byte
+        | by byte, keep our CD vectors, and collect the program's vblank
+        | vector in CD_GAME_VBL instead of letting it take effect now.
+        move.b  (a0)+,d0
+        cmp.w   #0x54,d1
+        bcs     2f
+        cmp.w   #0x60,d1
+        bcs     3f                      | 0x54-0x5F: CD interrupts stay ours
+        cmp.w   #0x68,d1
+        bcs     2f
+        cmp.w   #0x6C,d1
+        bcc     2f
+        lea     CD_GAME_VBL-0x68,a1     | 0x68-0x6B: vblank, for later
+        move.b  d0,(a1,d1.w)
+        bra     3f
+2:      movea.l d1,a1
+        move.b  d0,(a1)
+3:      addq.l  #1,SINK_POS
+        subq.l  #1,d5
+        bra     sw_loop
+sw_prg2:
+        move.l  #0x200000,d2
         sub.l   d1,d2                   | room left
         bls     sw_done
         movea.l d1,a1
@@ -727,6 +753,15 @@ sw_spr: and.l   #0x3FFFFF,d1            | the bank register has two bits
         add.l   #UPLOAD_ZONE,d3
         movea.l d3,a1
         moveq   #0,d4
+        btst    #0,d3                   | sprite memory sits on a 16 bit bus:
+        bne     sw_one                  | write whole words wherever possible
+        cmp.l   #1,d2
+        beq     sw_one
+        cmp.l   #1,d5
+        beq     sw_one
+        moveq   #2,d4
+        bra     sw_copy
+sw_one: moveq   #1,d2                   | a single byte
         bra     sw_copy
 | sample memory, two banks of 512 KiB, one byte per word
 sw_pcm: cmp.l   #0x100000,d1
@@ -752,7 +787,20 @@ sw_copy:
 1:      cmp.l   #0x8000,d2
         bls     2f
         move.l  #0x8000,d2
-2:      sub.l   d2,d5
+2:      cmp.b   #2,d4
+        bne     21f
+        bclr    #0,d2                   | words: an even number of bytes
+        sub.l   d2,d5
+        add.l   d2,SINK_POS
+        lsr.w   #1,d2
+        subq.w  #1,d2
+22:     move.b  (a0)+,d0
+        lsl.w   #8,d0
+        move.b  (a0)+,d0
+        move.w  d0,(a1)+
+        dbra    d2,22b
+        bra     5f
+21:     sub.l   d2,d5
         add.l   d2,SINK_POS
         subq.w  #1,d2
         tst.b   d4
@@ -763,12 +811,13 @@ sw_copy:
 4:      move.b  (a0)+,(a1)
         addq.l  #2,a1
         dbra    d2,4b
-5:      tst.b   SINK_TYPE               | program data over the vector table:
-        bne     sw_loop                 | keep the CD interrupts alive
-        cmp.l   #0x80,d1
-        bcc     sw_loop
-        bsr     vectors_guard
-        bra     sw_loop
+5:      bra     sw_loop
+
+| Vertical blank while the BIOS loads: the game must not run yet.
+ld_vblank:
+        move.w  #4,REG_IRQACK
+        move.b  d0,REG_WATCHDOG
+        rte
 
 vectors_guard:
         move.l  #jt_cdirq21,(0x54).w
@@ -856,6 +905,15 @@ lle_load_table:
         beq     14f                     | user mode: interrupts are open anyway
         move.w  #0x2100,sr              | drive interrupts on, vblank held back
 14:     move.w  #0x0301,REG_VBLMASK
+        tst.b   PV_BOOTED               | (the first load is set up by lle_boot)
+        beq     16f
+        st      LD_BUSY
+        move.l  (0x68).w,d0
+        cmp.l   #ld_vblank,d0
+        beq     16f
+        move.l  d0,CD_GAME_VBL          | park the game's handler
+        move.l  #ld_vblank,(0x68).w
+16:
         clr.b   CDA_REQF
         clr.b   CDA_STATE               | music stops while the drive seeks
         clr.b   DEFER_N
@@ -929,7 +987,11 @@ lle_load_table:
         beq     13f
         clr.b   REG_Z80RST              | restart the sound CPU
         move.b  #0xFF,REG_Z80RST
-13:     move.w  #0x0331,REG_VBLMASK
+13:     tst.b   PV_BOOTED
+        beq     17f
+        move.l  CD_GAME_VBL,(0x68).w    | the game gets its vblank back
+        clr.b   LD_BUSY
+17:     move.w  #0x0331,REG_VBLMASK
         btst    #13,d6
         beq     15f
         move.w  d6,sr
@@ -1019,11 +1081,6 @@ le_sector:
 4:      bsr     cd_read_end
 le_done:
         bsr     sink_close
-        cmp.b   #FT_PRG,FE_TYPE(a2)     | remember the game's vblank handler
-        bne     5f
-        cmp.l   #0x68,FE_OFFSET(a2)
-        bhi     5f
-        move.l  (0x68).w,CD_GAME_VBL
 5:      movem.l (sp)+,d0-d7/a0-a1
         rts
 
@@ -1167,6 +1224,8 @@ lle_boot:
         move.b  #1,REG_CDD_ENABLE
         move.w  #0x0550,REG_CDMASK
         move.b  d0,REG_BUSREL_Z80
+        st      LD_BUSY
+        move.l  #ld_vblank,(0x68).w
         move.w  #0x2100,sr
 
         bsr     ls_begin
@@ -1200,6 +1259,10 @@ lle_boot:
         bsr     load_deferred
         move.w  #0x2700,sr
         bsr     vectors_guard
+        move.l  CD_GAME_VBL,d0          | hand the vblank to the game
+        beq     5f
+        move.l  d0,(0x68).w
+5:      clr.b   LD_BUSY
         rts
 
 ipl_name:

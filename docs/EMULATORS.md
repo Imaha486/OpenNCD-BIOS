@@ -31,9 +31,11 @@ Select the file under *Neocd options*, or set `neocd_bios = <path>` in `config/r
 
 In NeoRaine the emulator reads the disc and the BIOS only provides services, so loading is instant apart from the animation.
 
-## Raine after NeoRaine 1.4.3 (untested)
+## Raine 0.98
 
-Select it the same way. This has not been tried. If it fails, please open an issue with the Raine version and what you saw.
+Load a game with *Load Neo-Geo CD game*. The first time, Raine asks for the BIOS file: point it at `neocd.bin`. Audio tracks go in a folder named `neocd.mp3` next to the game's zip file, not inside it.
+
+Raine finds the loading screen routines by scanning the BIOS; the landmark block at `$C0B000` exists for that. Older Raine versions between 1.4.3 and 0.98 have not been tried.
 
 ## FinalBurn Neo (untested)
 
@@ -49,7 +51,7 @@ FBNeo identifies BIOS files by CRC and will not load an unknown one without chan
 | CD audio | The BIOS looks up the track, plays it and restarts it at the end | Done by the emulator |
 | Loading screen | Drawn and updated by the BIOS | The emulator calls the BIOS drawing routines |
 
-The BIOS selects assisted mode if it was entered at `$C0A822`, or if the emulator has patched the bytes at `$C0A87A`. Otherwise it uses hardware mode.
+The BIOS selects assisted mode if it was entered at `$C0A822` (NeoRaine 1.4.3), if the emulator has patched the bytes at `$C0A87A`, or if the very first thing executed is `BIOSF_RESETGAME` at `$C00582` (Raine 0.98). A start through the reset vector selects hardware mode.
 
 ## Error messages
 
@@ -94,9 +96,11 @@ MAME は等速ドライブを再現するので、最初のロードに 1 分前
 
 NeoRaine ではエミュレータがディスクを読み、BIOS はサービスを提供するだけなので、ロードはアニメーションを除けば一瞬です。
 
-## NeoRaine 1.4.3 より後の Raine（未検証）
+## Raine 0.98
 
-同じ方法で指定します。実際に試してはいません。動かなかった場合は、Raine のバージョンと症状を添えて issue を立ててください。
+*Load Neo-Geo CD game* でゲームを読み込みます。初回は BIOS ファイルの場所を聞かれるので、`neocd.bin` を指定します。音声トラックは、ゲームの zip の中ではなく、zip と同じ場所に置いた `neocd.mp3` という名前のフォルダに入れます。
+
+Raine は BIOS の中を検索してロード画面のルーチンを見つけます。`$C0B000` の目印ブロックはそのためのものです。1.4.3 と 0.98 の間の版は試していません。
 
 ## FinalBurn Neo（未検証）
 
@@ -112,7 +116,7 @@ FBNeo は BIOS を CRC で識別するため、FBNeo 側を変更しない限り
 | CD-DA | BIOS がトラック位置を調べて再生し、終端で頭出しする | エミュレータが行う |
 | ロード画面 | BIOS が描画・更新する | エミュレータが BIOS の描画ルーチンを呼ぶ |
 
-`$C0A822` から入った場合、またはエミュレータが `$C0A87A` のバイトを書き換えている場合は代行モード、それ以外はハードウェアモードになります。
+`$C0A822` から入った場合（NeoRaine 1.4.3）、エミュレータが `$C0A87A` のバイトを書き換えている場合、または最初に実行されるのが `$C00582` の `BIOSF_RESETGAME` である場合（Raine 0.98）は代行モードになります。リセットベクタから始まった場合はハードウェアモードです。
 
 ## エラー表示
 

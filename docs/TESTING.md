@@ -46,11 +46,30 @@ The table above was produced with 2.0. For 2.1 the following was run:
 
 The new system work area values, the sound command call and the multi-sector PAT handling have no test of their own: none of the five games depends on them.
 
+## Version 2.2
+
+2.2 answers a report from a MAME-based system (not available here) where 2.0 stopped with an exception in many games. The suspected cause was reproduced by changing a test copy of the NeoCD libretro core so that the vertical blank interrupt cannot be held back by the BIOS (delivered at level 2, mask register ignored):
+
+- With that change, 2.0 hangs at the loading screen in four of the five games. 2.2 boots all five, and The King of Fighters '94 plays into a fight.
+- The hang is not the same symptom as the reported exception, so this shows the same kind of fault, not proof that the report is fixed. It has not been confirmed on the reporting system.
+
+Regression with the unmodified emulators: all five games, Blue and Red (a free homebrew game), the self-test disc and the 700-file disc on the libretro core; The King of Fighters '94 into a fight, through two in-game loads, on MAME 0.264; The King of Fighters '94 into a fight with audio on NeoRaine 1.4.3.
+
+## Version 2.3 (Raine 0.98)
+
+Raine 0.98 (64-bit Windows build, run under Wine) with games loaded through its menu:
+
+- With 2.2 the screen stays on LOADING with an empty bar for good. A user reported a crash at this point on Windows; the hang seen here is taken to be the same fault, but the crash itself was not reproduced.
+- With 2.3: Viewpoint reaches the title and attract mode. The King of Fighters '94 reaches the title with a correct logo and the start button leads to the game select screen. Flying Power Disc runs its attract match, which needs in-game loads, and start leads to mode select. Quiz King of Fighters runs its attract mode and start leads to mode select. Raine opened the expected audio track in the last two.
+- Not done: Twinkle Star Sprites, and anything past the first menu in any game. The test script could not find which key Raine maps to button A, so no game was actually played.
+
+Regression for 2.3: six games and the self-test disc on the libretro core; The King of Fighters '94 on MAME 0.264 (title, logo, in-game load); The King of Fighters '94 to team select on NeoRaine 1.4.3.
+
 ## Not tested
 
 - Any game other than the five above
 - Any game through to its ending
-- Raine versions after NeoRaine 1.4.3
+- Raine versions between NeoRaine 1.4.3 and 0.98
 - FinalBurn Neo
 - Real hardware
 - Two-player input
@@ -103,11 +122,30 @@ The new system work area values, the sound command call and the multi-sector PAT
 
 追加したシステムワークエリアの値、サウンドコマンドのコール、複数セクタにまたがる PAT の処理には専用のテストがありません。5 本のどれもこれらに依存していないためです。
 
+## バージョン 2.2
+
+2.2 は、MAME ベースのシステム（こちらでは用意できません）で 2.0 が多くのゲームで例外停止した、という報告への対応です。疑った原因は、NeoCD libretro コアのテスト用コピーを「垂直帰線割り込みを BIOS 側で止められない」ように改造して再現しました（レベル 2 で配送し、マスクレジスタを無視）。
+
+- この改造下では、2.0 は 5 本中 4 本がロード画面で止まります。2.2 は 5 本すべて起動し、ザ・キング・オブ・ファイターズ'94 は対戦まで進みます。
+- ロード画面での停止は、報告された例外表示と同じ症状ではありません。同じ種類の不具合を再現したというだけで、報告の件が直った証明ではありません。報告元のシステムでは未確認です。
+
+改造していないエミュレータでの回帰確認: libretro コアで 5 本すべて、Blue and Red（フリーのホームブリュー）、自己テスト用ディスク、700 本ディスク。MAME 0.264 でザ・キング・オブ・ファイターズ'94 をゲーム中のロード 2 回を挟んで対戦まで。NeoRaine 1.4.3 でザ・キング・オブ・ファイターズ'94 を音声付きで対戦まで。
+
+## バージョン 2.3（Raine 0.98）
+
+Raine 0.98（64 ビット Windows 版を Wine 上で実行）で、メニューからゲームを読み込んで確認しました。
+
+- 2.2 では LOADING の画面でバーが空のまま止まり続けます。Windows ではこの時点でクラッシュするという報告があり、こちらで見た停止は同じ不具合だと判断していますが、クラッシュそのものは再現していません。
+- 2.3: ビューポイントはタイトルとデモまで。ザ・キング・オブ・ファイターズ'94 はロゴが正しく出たタイトルまで進み、スタートボタンでゲーム選択画面に入ります。フライングパワーディスクはデモの試合（ゲーム中のロードを伴う）が動き、スタートでモード選択へ。クイズ キング・オブ・ファイターズはデモが動き、スタートでモード選択へ。後の 2 本では Raine が想定どおりの音声トラックを開きました。
+- 未実施: ティンクルスタースプライツ、および各ゲームの最初のメニューより先。テスト用スクリプトから、Raine が A ボタンに割り当てているキーを特定できなかったため、実際のプレイはしていません。
+
+2.3 の回帰確認: libretro コアで 6 本と自己テスト用ディスク。MAME 0.264 でザ・キング・オブ・ファイターズ'94（タイトル、ロゴ、ゲーム中のロード）。NeoRaine 1.4.3 でザ・キング・オブ・ファイターズ'94 をチーム選択まで。
+
 ## 未検証
 
 - 上の 5 本以外のゲーム
 - 各ゲームのエンディングまでの通しプレイ
-- NeoRaine 1.4.3 より後の Raine
+- NeoRaine 1.4.3 と 0.98 の間の Raine
 - FinalBurn Neo
 - 実機
 - 2 人プレイの入力

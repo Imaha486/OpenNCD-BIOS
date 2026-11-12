@@ -12,14 +12,14 @@ It is meant for emulators only. It has never been run on a real console.
 
 ## Status
 
-Version 2.1. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
+Version 2.3. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
 
 | Emulator | Mode | Result |
 |---|---|---|
 | MAME 0.264 (`neocdz`) | BIOS drives the CD hardware itself | 5 of 5 test games boot and play |
 | NeoCD libretro core (RetroArch) | BIOS drives the CD hardware itself | 5 of 5 test games boot; 2 played in depth |
 | NeoRaine 1.4.3 | Emulator loads files, BIOS provides services | 5 of 5 test games boot and play |
-| Raine (versions after NeoRaine 1.4.3) | Emulator loads files | **Untested.** Landmarks for its BIOS scan are present |
+| Raine 0.98 | Emulator loads files, BIOS provides services | 4 of 5 test games boot; attract mode and start button only (see the test record) |
 | FinalBurn Neo | BIOS drives the CD hardware itself | **Untested.** FBNeo only accepts BIOS files with known CRCs |
 | Real hardware | | **Not supported, never tried** |
 
@@ -31,7 +31,7 @@ Download `neocd.bin` from the [Releases](../../releases) page, or build it yours
 
 - **MAME**: put it at `roms/neocdz/neocd.bin`. MAME warns about the checksum and runs anyway. MAME also wants `000-lo.lo`, which this project does not provide.
 - **RetroArch (NeoCD core)**: put it in `system/neocd/` and select it in the core options.
-- **NeoRaine**: select it as the NeoCD BIOS.
+- **NeoRaine / Raine**: select it as the NeoCD BIOS.
 
 You know it is running when you see the loading screen shown above.
 
@@ -80,7 +80,6 @@ The build is deterministic. Pushing a tag such as `v2.0` makes GitHub Actions bu
 - CD audio stops while files are loading.
 - `MESS_OUT` commands 8 and 9 (8x16 text) are implemented from an ambiguous description.
 - The random table is original, so random sequences differ from the original ROM.
-- In MAME, a game that calls a load in user mode keeps receiving vertical blank interrupts during the load, because MAME does not emulate the interrupt mask register. The test games are not affected.
 - The track list a real BIOS keeps in RAM (`$10F570`) is not filled in, so a game that reads the disc's table of contents from there sees zeroes.
 - CD audio commands 3 and 6 are documented differently by different sources. Here 2 and 6 pause and 3 and 7 resume.
 

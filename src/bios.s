@@ -116,6 +116,9 @@
         .equ    PV_SIZE,        0x100
         .equ    PV_MAGIC,       PV_BASE+0xF0    | marks emulator-assisted loading
         .equ    MAGIC_HLE,      0x4F4E4344
+        .equ    MAGIC_HL2,      0x4F4E4332
+        .equ    MAGIC_LLE,      0x4F4E434C
+        .equ    PV_UPOLD,       PV_BASE+0xF5    | uploads are done by the emulator
 
 | memory card geometry (8 KiB battery RAM, one byte per odd address)
         .equ    CARD_DIR,       0x040           | 128 entries of 4 bytes
@@ -173,7 +176,7 @@ rom_start:
 | Identification
 |---------------------------------------------------------------------------
         .org    0x100
-        .ascii  "OpenNCD BIOS 2.1 - clean-room CD system ROM for emulators. "
+        .ascii  "OpenNCD BIOS 2.3 - clean-room CD system ROM for emulators. "
         .ascii  "Original work, contains no SNK code. "
         .balign 2
 
@@ -241,7 +244,7 @@ jt_exc_r20:     SLOT exc_gen2           | C0053A
                 SLOT biosf_videoen      | C00570 BIOSF_VIDEOEN
                 SLOT sound_command      | C00576 send a byte to the sound CPU
                 SLOT ret_rts            | C0057C BIOSF_SETCDDMODE
-                SLOT soft_reset         | C00582 BIOSF_RESETGAME
+                SLOT reset_game         | C00582 BIOSF_RESETGAME
                 RTSLOTS 63              | C00588-C006FC
 
 ret_rts:
@@ -267,6 +270,8 @@ system_int2:
 | level 2 on CD hardware: vertical blank (only used while the system
 | vector table is selected; games normally own the vector)
 irq_vblank:
+        tst.b   LD_BUSY                 | loading: nothing else may run
+        bne     ld_vblank
         tst.b   BIOS_SYSTEM_MODE
         bpl     system_int1
         move.l  CD_GAME_VBL,-(sp)       | game owns the vblank
@@ -292,27 +297,51 @@ system_int1:
 | A program running in user mode may come here too: the privilege
 | exception raised by the first instruction is recognised in exc_show and
 | execution continues here in supervisor mode.
+| BIOSF_RESETGAME.  Newer versions of Raine load the game themselves and
+| then start the BIOS here, without patching it.
+reset_game:
+        moveq   #1,d6
+        bra     sup_gate
 soft_reset:
+        moveq   #0,d6
 sup_gate:
         move.w  #0x2700,sr
         lea     SYS_STACK,sp
         move.b  d0,REG_WATCHDOG
-        cmp.l   #MAGIC_HLE,PV_MAGIC
+        move.l  PV_MAGIC,d0
+        cmp.l   #MAGIC_HLE,d0
         beq     hle_boot
-        cmp.w   #0x4E71,(hle_patch).l   | such emulators patch this spot
+        cmp.l   #MAGIC_HL2,d0
+        beq     hle_boot2
+        cmp.w   #0x4E71,(hle_patch).l   | some emulators patch this spot
         bne     hle_boot
-        bsr     pv_clear
+        cmp.l   #MAGIC_LLE,d0
+        beq     1f
+        tst.b   d6                      | first thing executed is RESETGAME:
+        bne     hle_boot2               | the emulator has loaded the game
+1:      bsr     pv_clear
+        move.l  #MAGIC_LLE,PV_MAGIC
         clr.b   REG_UPLOAD_EN
         clr.l   CD_GAME_VBL
         bsr     lle_boot                | read the game from the disc ourselves
         bra     boot
 
-| entered from boot_entry
+| entered from boot_entry: the emulator loads files and performs uploads
 hle_boot:
         move.w  #0x2700,sr
         lea     SYS_STACK,sp
         bsr     pv_clear
         move.l  #MAGIC_HLE,PV_MAGIC
+        st      PV_HLE
+        st      PV_UPOLD
+        bra     boot
+
+| the emulator loads files; uploads go through the transfer window
+hle_boot2:
+        move.w  #0x2700,sr
+        lea     SYS_STACK,sp
+        bsr     pv_clear
+        move.l  #MAGIC_HL2,PV_MAGIC
         st      PV_HLE
         bra     boot
 
@@ -962,7 +991,7 @@ biosf_upload:
         add.l   d0,BIOS_UPDEST
         clr.l   BIOS_UPSIZE
         bra     9f
-5:      tst.b   PV_HLE
+5:      tst.b   PV_UPOLD
         bne     6f
         bsr     lle_upload
         bra     9f
@@ -1634,7 +1663,7 @@ exc_show:
         move.w  #0x7000+6*32+10,d0
         bsr     ls_print
         move.w  d7,d0                   | vector number
-        move.w  #0x7000+26*32+10,d1
+        move.w  #0x7000+30*32+10,d1
         moveq   #1,d2
         bsr     exc_hex
         moveq   #5,d6                   | six stack words
