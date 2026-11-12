@@ -8,6 +8,7 @@ OpenNCD BIOS was written from four kinds of source, and nothing else:
 
 1. The public documentation on the [NeoGeo Development Wiki](https://wiki.neogeodev.org/): BIOS calls, BIOS RAM locations, the program header, the memory card format, memory mapped registers, the CD file types.
 2. The hardware behaviour written down in open-source emulators: MAME, FinalBurn Neo, the NeoCD libretro core and Raine. These say what a register does when it is written. They do not contain the BIOS.
+   - Since version 2.1 this includes the comments in the NeoCD core's own high-level BIOS replacement (`hlebios.cpp`). Its authors record what they saw a console do from the outside: which RAM bytes hold which values, and what a call leaves behind. Only such game-visible facts were taken from it (for example the heartbeat at `$10FE84`, the counter at `$10F749`, and that a posted CD audio request is cleared). No code was taken.
 3. The behaviour of NeoRaine 1.4.3 itself, which expects certain routines at fixed ROM addresses.
 4. Observation of how five games call the BIOS and which ROM addresses they read.
 
@@ -20,12 +21,12 @@ The original BIOS images were **never disassembled, traced or copied from**. The
 
 ## Where the image matches an original ROM, and why
 
-Run `tools/similarity_check.py` against your own reference ROM to reproduce this. For version 2.0, against the two reference images available to the author:
+Run `tools/similarity_check.py` against your own reference ROM to reproduce this. For version 2.1, against the two reference images available to the author:
 
 | Measure | Result |
 |---|---|
-| Code bytes in use (tables excluded) | 6,626 |
-| Bytes equal at the same offset | 58 at most |
+| Code bytes in use (tables excluded) | 7,144 |
+| Bytes equal at the same offset | 55 at most |
 | Runs of 12 or more bytes that also occur anywhere in the reference | 21 at most |
 
 The shared runs fall into these groups:
@@ -63,6 +64,7 @@ OpenNCD BIOS は、次の 4 種類の情報だけをもとに書いています�
 
 1. [NeoGeo Development Wiki](https://wiki.neogeodev.org/) の公開仕様。BIOS コール、BIOS が使う RAM、プログラムヘッダ、メモリーカード形式、メモリマップトレジスタ、CD のファイル種別など。
 2. オープンソースのエミュレータ（MAME、FinalBurn Neo、NeoCD libretro コア、Raine）のソースに書かれたハードウェアの挙動。「このレジスタに書くと何が起きるか」が書かれているもので、BIOS そのものは含まれていません。
+   - バージョン 2.1 からは、NeoCD コアが内蔵する独自の BIOS 代替実装（`hlebios.cpp`）のコメントも参照しています。そこには、本体を外から観察して分かったこと（RAM のどのバイトにどんな値が入るか、あるコールの後に何が残るか）が書かれています。そこから採ったのは、ゲームから見える事実だけです（`$10FE84` のハートビート、`$10F749` のカウンタ、Z80 RAM に置かれた CD-DA 要求が消去されること、など）。コードは採っていません。
 3. NeoRaine 1.4.3 本体の挙動。このエミュレータは ROM の決まった番地に特定のルーチンがあることを前提にしています。
 4. 5 本のゲームが BIOS をどう呼び、ROM のどの番地を読むかの観察。
 
@@ -75,12 +77,12 @@ OpenNCD BIOS は、次の 4 種類の情報だけをもとに書いています�
 
 ## 純正 ROM と一致する箇所とその理由
 
-`tools/similarity_check.py` に手元の参照 ROM を与えれば、同じ検査を再現できます。バージョン 2.0 を、作者の手元にある 2 つの参照イメージと比べた結果は次のとおりです。
+`tools/similarity_check.py` に手元の参照 ROM を与えれば、同じ検査を再現できます。バージョン 2.1 を、作者の手元にある 2 つの参照イメージと比べた結果は次のとおりです。
 
 | 項目 | 結果 |
 |---|---|
-| 使用中のコードのバイト数（数表を除く） | 6,626 |
-| 同じ番地で一致するバイト数 | 最大 58 |
+| 使用中のコードのバイト数（数表を除く） | 7,144 |
+| 同じ番地で一致するバイト数 | 最大 55 |
 | 参照側のどこかにも現れる 12 バイト以上の並び | 最大 21 か所 |
 
 共通の並びの内訳は次のとおりです。

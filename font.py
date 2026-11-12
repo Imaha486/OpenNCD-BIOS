@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Zlib
 # Copyright (c) 2026 Imaha486
 """Loading-screen tile set for OpenNCD BIOS.
 

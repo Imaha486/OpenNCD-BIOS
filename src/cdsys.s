@@ -1,7 +1,7 @@
 |============================================================================
 | OpenNCD BIOS - CD subsystem for emulators that model the real hardware
 |
-| SPDX-License-Identifier: MIT
+| SPDX-License-Identifier: Zlib
 | Copyright (c) 2026 Imaha486
 |
 | (drive command link, sector decoder, transfer window).
@@ -74,6 +74,11 @@
         .equ    WIN_BUSY,       PV_BASE+0xC9    | transfer window in use
         .equ    CDA_REQF,       PV_BASE+0xCA
         .equ    CDA_REQ,        PV_BASE+0xCC
+        .equ    DIR_LBA,        PV_BASE+0xE0    | root directory extent
+        .equ    DIR_SECTORS,    PV_BASE+0xE4
+        .equ    DIR_MORE,       PV_BASE+0xE8    | directory did not fit in the cache
+        .equ    PAT_FILL,       PV_BASE+0xE9    | bytes in PAT_REC
+        .equ    PAT_REC,        PV_BASE+0xEA    | one 10 byte record (..0xF3)
         .equ    DEFER_N,        PV_BASE+0xCF
         .equ    DEFER_LIST,     PV_BASE+0xD0    | up to 8 entry pointers
 
@@ -137,7 +142,14 @@ irq_cd_link:
         dbra    d1,3b
         clr.b   CD_CMDF
         addq.b  #1,CD_TICK
-        bsr     cda_service
+        tst.b   RD_ACTIVE               | drive busy: keep the heartbeat going
+        bne     4f
+        cmp.b   #CDS_PLAY,CDA_STATE
+        beq     4f
+        cmp.b   #CDS_WPOS,CDA_STATE
+        bne     5f
+4:      bsr     cd_heartbeat
+5:      bsr     cda_service
         movem.l (sp)+,d0-d4/a0-a1
         rte
 
@@ -396,6 +408,10 @@ iso_mount:
         moveq   #11,d1
         lsr.l   d1,d0
         move.l  d0,d7                   | sectors
+        move.l  d6,DIR_LBA
+        move.l  d7,DIR_SECTORS
+        clr.b   DIR_MORE
+        tst.l   d7
         beq     iso_done
         lea     DIRCACHE,a3
         move.l  d6,d0
@@ -408,8 +424,10 @@ iso_mount:
         btst    #1,25(a2)               | directory?
         bne     4f
         cmp.w   #DIRMAX,DIR_COUNT
-        bcc     4f
-        moveq   #0,d4
+        bcs     30f
+        st      DIR_MORE                | the rest is looked up on the disc
+        bra     4f
+30:     moveq   #0,d4
         move.b  32(a2),d4               | name length
         beq     4f
         lea     33(a2),a0
@@ -480,8 +498,78 @@ dir_find:
         bra     9f
 6:      lea     20(a3),a3
         dbra    d5,1b
-8:      moveq   #1,d2
+8:      tst.b   DIR_MORE
+        beq     81f
+        movem.l (sp)+,d2-d5/a1-a3
+        bra     dir_find_disc
+81:     moveq   #1,d2
 9:      movem.l (sp)+,d2-d5/a1-a3
+        rts
+
+| The same search, reading the directory from the disc (used for the
+| entries that did not fit in the cache).
+dir_find_disc:
+        movem.l d2-d7/a1-a3,-(sp)
+        move.l  DIR_SECTORS,d7
+        beq     8f
+        move.l  DIR_LBA,d0
+        bsr     cd_read_begin
+1:      bsr     cd_read_wait
+        lea     SECBUF,a2
+2:      moveq   #0,d5
+        move.b  (a2),d5                 | record length
+        beq     6f
+        btst    #1,25(a2)
+        bne     5f
+        moveq   #0,d4
+        move.b  32(a2),d4               | name length
+        beq     5f
+        lea     33(a2),a3
+        movea.l a0,a1
+3:      move.b  (a1)+,d2                | wanted name, upper case
+        cmp.b   #';',d2
+        bne     31f
+        moveq   #0,d2
+31:     cmp.b   #'a',d2
+        bcs     32f
+        cmp.b   #'z',d2
+        bhi     32f
+        sub.b   #0x20,d2
+32:     moveq   #0,d3                   | name on the disc
+        tst.w   d4
+        beq     33f
+        move.b  (a3)+,d3
+        subq.w  #1,d4
+        cmp.b   #';',d3
+        bne     33f
+        moveq   #0,d3
+        moveq   #0,d4
+33:     cmp.b   d2,d3
+        bne     5f
+        tst.b   d2
+        bne     3b
+        lea     2(a2),a3                | found
+        exg     a0,a3
+        bsr     get_le32
+        move.l  d0,d6
+        lea     10(a2),a0
+        bsr     get_le32
+        move.l  d0,d1
+        move.l  d6,d0
+        movea.l a3,a0
+        bsr     cd_read_end
+        moveq   #0,d2
+        bra     9f
+5:      adda.w  d5,a2
+        cmpa.l  #SECBUF+2048,a2
+        bcs     2b
+6:      subq.l  #1,d7
+        beq     7f
+        bsr     cd_read_next
+        bra     1b
+7:      bsr     cd_read_end
+8:      moveq   #1,d2
+9:      movem.l (sp)+,d2-d7/a1-a3
         rts
 
 | a0 -> file name.  Returns d0 = type derived from the extension
@@ -626,8 +714,8 @@ sw_bytearea:
         moveq   #1,d4                   | step 2
         bra     sw_copy
 | sprite tiles, four banks of 1 MiB
-sw_spr: cmp.l   #0x400000,d1
-        bcc     sw_done
+sw_spr: and.l   #0x3FFFFF,d1            | the bank register has two bits
+        move.l  d1,SINK_POS
         move.l  d1,d3
         swap    d3
         lsr.w   #4,d3
@@ -688,44 +776,62 @@ vectors_guard:
         move.l  #jt_cdirq23,(0x5C).w
         rts
 
-| Sample table patch (PAT data at a0, d0.w = offset added to every value).
-| The sound program memory must be open as the current sink.
-| Each record: address, start, end, start2, end2 (words); address 0 ends.
-pat_apply:
-        movem.l d0-d6/a0-a1,-(sp)
-        move.w  d0,d6
-        moveq   #127,d5                 | safety limit
-1:      move.w  (a0),d3
+| Sample table patch.  a0 = data, d0.l = number of bytes, d6.w = offset
+| added to every value.  The sound program memory must be the open sink.
+| The file is a run of 10 byte records: address, start, end, start2, end2
+| (big endian words).  A record whose address is 0x0000 or 0xFFFF only
+| separates sections.  Records may straddle sectors, so they are gathered
+| byte by byte in PAT_REC.
+pat_feed:
+        movem.l d0-d5/a0-a2,-(sp)
+        move.l  d0,d5
         beq     9f
-        move.w  2(a0),d2
-        add.w   d6,d2
-        lsr.w   #1,d2
-        bsr     pat_poke
-        addq.w  #2,d3
-        move.w  4(a0),d2
-        add.w   d6,d2
-        lsr.w   #1,d2
-        subq.w  #1,d2
-        bsr     pat_poke
-        tst.w   6(a0)
-        beq     2f
-        tst.w   8(a0)
-        beq     2f
-        addq.w  #3,d3
-        move.w  6(a0),d2
-        add.w   d6,d2
-        lsr.w   #1,d2
-        bsr     pat_poke
-        addq.w  #2,d3
-        move.w  8(a0),d2
-        add.w   d6,d2
-        lsr.w   #1,d2
-        subq.w  #1,d2
-        bsr     pat_poke
-2:      lea     10(a0),a0
-        dbra    d5,1b
-9:      movem.l (sp)+,d0-d6/a0-a1
+1:      moveq   #0,d0
+        move.b  PAT_FILL,d0
+        lea     PAT_REC,a2
+        move.b  (a0)+,(a2,d0.w)
+        addq.b  #1,d0
+        move.b  d0,PAT_FILL
+        cmp.b   #10,d0
+        bne     2f
+        clr.b   PAT_FILL
+        bsr     pat_record
+2:      subq.l  #1,d5
+        bne     1b
+9:      movem.l (sp)+,d0-d5/a0-a2
         rts
+
+pat_record:
+        lea     PAT_REC,a2
+        move.w  (a2),d3
+        beq     9f
+        cmp.w   #0xFFFF,d3
+        beq     9f
+        move.w  2(a2),d2
+        add.w   d6,d2
+        lsr.w   #1,d2
+        bsr     pat_poke
+        addq.w  #2,d3
+        move.w  4(a2),d2
+        add.w   d6,d2
+        lsr.w   #1,d2
+        subq.w  #1,d2
+        bsr     pat_poke
+        move.w  6(a2),d0
+        or.w    8(a2),d0
+        beq     9f
+        addq.w  #3,d3
+        move.w  6(a2),d2
+        add.w   d6,d2
+        lsr.w   #1,d2
+        bsr     pat_poke
+        addq.w  #2,d3
+        move.w  8(a2),d2
+        add.w   d6,d2
+        lsr.w   #1,d2
+        subq.w  #1,d2
+        bsr     pat_poke
+9:      rts
 | store word d2 (low byte first) at sound memory address d3
 pat_poke:
         moveq   #0,d0
@@ -885,6 +991,7 @@ load_entry:
         bne     le_open
         st      LD_Z80
 le_open:
+        clr.b   PAT_FILL
         bsr     sink_open
         move.l  FE_SIZE(a2),d5          | bytes left
         beq     le_done
@@ -900,9 +1007,7 @@ le_sector:
         lea     SECBUF,a0
         cmp.b   #FT_PAT,FE_TYPE(a2)
         bne     2f
-        move.w  d6,d0
-        bsr     pat_apply
-        moveq   #0,d5                   | one sector is all a patch file has
+        bsr     pat_feed
         bra     3f
 2:      bsr     sink_write
 3:      addq.l  #1,LD_DONE
@@ -1261,13 +1366,16 @@ lle_upload:
         lsl.l   #4,d3
         add.l   d3,d1
         lsr.l   #8,d1
-        move.w  d1,-(sp)
+        move.l  d6,-(sp)
+        move.w  d1,d6
         moveq   #FT_Z80,d0
         moveq   #0,d1
         bsr     sink_open
-        move.w  (sp)+,d0
-        bsr     pat_apply
+        clr.b   PAT_FILL
+        move.l  BIOS_UPSIZE,d0
+        bsr     pat_feed
         bsr     sink_close
+        move.l  (sp)+,d6
 up_end: clr.l   BIOS_UPSIZE
         movem.l (sp)+,d0-d3/a0
         rts
@@ -1312,7 +1420,13 @@ cda_accept:
         beq     3f
         tst.b   d0                      | play: track 00 is not valid
         beq     9f
-        move.b  d0,CDA_TRACK
+        cmp.b   CDA_TRACK,d0            | already playing this track:
+        bne     1f                      | leave it alone
+        tst.b   CDA_STATE
+        beq     1f
+        cmp.b   #CDS_PAUSED,CDA_STATE
+        bne     9f
+1:      move.b  d0,CDA_TRACK
         move.b  d1,CDA_ONCE             | 1: stop at the end, 0: repeat
         move.b  #5,CDA_RETRY
         move.b  #CDS_LOOKUP,CDA_STATE

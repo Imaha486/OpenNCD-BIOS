@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Zlib
 # Copyright (c) 2026 Imaha486
 """Data tables that games read directly from the system ROM address space.
 

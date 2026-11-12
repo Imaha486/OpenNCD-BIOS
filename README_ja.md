@@ -12,7 +12,7 @@
 
 ## 対応状況
 
-バージョン 2.0。同じ 512KB のイメージが 2 種類のエミュレータで動き、どちらのモードで動くかは自動で判定します。
+バージョン 2.1。同じ 512KB のイメージが 2 種類のエミュレータで動き、どちらのモードで動くかは自動で判定します。
 
 | エミュレータ | モード | 結果 |
 |---|---|---|
@@ -61,11 +61,12 @@ python3 build.py                            # または make
 | `font.py` | 手描きの 5x7 フォントと進捗バーのタイル |
 | `build.py` | アセンブル、表とフォントの配置、固定番地の検査、2 形式の出力 |
 | `tools/similarity_check.py` | 手元の参照 ROM とビルド結果を比較 |
+| `tests/` | 自己テスト用ディスク（40 本のロードリストとメモリーカードの読み書き） |
 
 ## 実装済みの機能
 
 - ディスクからの起動: ISO 9660 のルートディレクトリ、`IPL.TXT`、PRG / FIX / SPR / Z80 / PCM / PAT の読み込み
-- `BIOSF_LOADFILE`、`BIOSF_LOADFILEX`、`BIOSF_UPLOAD`、`BIOSF_CDDACMD`、`BIOSF_VIDEOEN`、`BIOSF_RESETGAME`、`BIOSF_CDPLAYER`
+- `BIOSF_LOADFILE`、`BIOSF_LOADFILEX`、`BIOSF_UPLOAD`、`BIOSF_CDDACMD`、`BIOSF_VIDEOEN`、`BIOSF_RESETGAME`、`BIOSF_CDPLAYER`、`$C00576` のサウンドコマンド送出
 - `SYSTEM_INT1`、`SYSTEM_INT2`、`SYSTEM_RETURN`、`SYSTEM_IO`、`CREDIT_CHECK`、`CREDIT_DOWN`
 - 内蔵バックアップ RAM に対する `CARD` と `CARD_ERROR`、`FIX_CLEAR`、`LSP_1st`、`MESS_OUT`、`CONTROLLER_SETUP`
 - CD-DA のループ再生と 1 回再生（BIOS コール方式と、Z80 RAM に命令を置く方式の両方）
@@ -80,7 +81,8 @@ python3 build.py                            # または make
 - `MESS_OUT` のコマンド 8 と 9（8x16 文字）は、仕様の記述が曖昧な部分を推定で実装しています。
 - 乱数表が独自なので、乱数の出方は純正 ROM と一致しません。
 - MAME では、ユーザーモードでロードを呼ぶゲームに対して、ロード中も垂直帰線割り込みが入ります（MAME が割り込みマスクレジスタを再現していないため）。テストした 5 本では問題は出ていません。
-- ルートディレクトリのファイルは 600 本まで、1 回のロードは 32 本までです。
+- 純正 BIOS が RAM（`$10F570`）に持つトラック一覧は作っていません。ディスクの目次をそこから読むゲームにはゼロが見えます。
+- CD-DA コマンドの 3 と 6 は資料によって説明が食い違っています。この BIOS では 2 と 6 が一時停止、3 と 7 が再開です。
 
 ## コントリビュート
 
@@ -88,7 +90,9 @@ python3 build.py                            # または make
 
 ## 権利表記
 
-OpenNCD BIOS は [MIT ライセンス](LICENSE) で公開しています。
+OpenNCD BIOS は [zlib ライセンス](LICENSE) で公開しています。`neocd.bin` をエミュレータに同梱するとき、表示を添える必要はありません。改変版を配布する場合は、改変版であることを明示し、オリジナルと偽らないでください。
+
+バージョン 2.0 までは MIT ライセンスで公開しており、それらの版には引き続き MIT ライセンスが適用されます。
 
 NEOGEO および NEOGEO CD は株式会社 SNK の商標です。このプロジェクトは SNK と関係がなく、承認も受けていません。名称は互換対象を示すためだけに使っています。
 

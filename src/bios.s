@@ -2,7 +2,7 @@
 | OpenNCD BIOS  -  an original, clean-room system ROM for emulated
 |                  NEOGEO CD hardware
 |
-| SPDX-License-Identifier: MIT
+| SPDX-License-Identifier: Zlib
 | Copyright (c) 2026 Imaha486
 |
 | Written from scratch against public documentation (NeoGeo Development
@@ -173,7 +173,7 @@ rom_start:
 | Identification
 |---------------------------------------------------------------------------
         .org    0x100
-        .ascii  "OpenNCD BIOS 2.0 - clean-room CD system ROM for emulators. "
+        .ascii  "OpenNCD BIOS 2.1 - clean-room CD system ROM for emulators. "
         .ascii  "Original work, contains no SNK code. "
         .balign 2
 
@@ -239,12 +239,17 @@ jt_exc_r20:     SLOT exc_gen2           | C0053A
                 SLOT biosf_loadfilex    | C00564 BIOSF_LOADFILEX
                 SLOT biosf_cddacmd      | C0056A BIOSF_CDDACMD
                 SLOT biosf_videoen      | C00570 BIOSF_VIDEOEN
-                SLOT ret_rts            | C00576 BIOSF_PUSHCDOP
+                SLOT sound_command      | C00576 send a byte to the sound CPU
                 SLOT ret_rts            | C0057C BIOSF_SETCDDMODE
                 SLOT soft_reset         | C00582 BIOSF_RESETGAME
                 RTSLOTS 63              | C00588-C006FC
 
 ret_rts:
+        rts
+
+| d0.b = command for the sound program
+sound_command:
+        move.b  d0,(0x320000).l
         rts
 
 |===========================================================================
@@ -342,6 +347,7 @@ boot:
         dbra    d0,5b
         move.l  #BIOS_MESS_BUFFER,BIOS_MESS_POINT
         move.b  #1,CD_READY
+        bsr     init_sysvars
 
         | nationality from the configuration port
         move.w  REG_CDCONFIG,d0
@@ -384,6 +390,40 @@ boot:
         clr.b   BIOS_SYSTEM_MODE
         lea     SYS_STACK,sp
         jmp     (HDR_USER).w
+
+|---------------------------------------------------------------------------
+| values the system work area holds on a running console
+init_sysvars:
+        lea     sysvar_list(pc),a0
+1:      move.w  (a0)+,d0
+        beq     2f
+        lea     (0x100000).l,a1
+        adda.w  d0,a1                   | (offsets above 0x7FFF are negative:
+        adda.l  #0x10000,a1             |  correct for the sign extension)
+        move.b  (a0)+,(a1)
+        addq.l  #1,a0
+        bra     1b
+2:      rts
+sysvar_list:                            | address - 0x100000, value, pad
+        .word   0xF781, 0x0100
+        .word   0xF785, 0x4900
+        .word   0xFE04, 0x8000
+        .word   0xFE0E, 0x0100
+        .word   0xFE0F, 0x0F00
+        .word   0xFE10, 0x1400
+        .word   0xFE12, 0x1800
+        .word   0xFE14, 0x1A00
+        .word   0xFE16, 0x1C00
+        .word   0xFE1F, 0x2000
+        .word   0xFEBB, 0x0100
+        .word   0xFEBD, 0x0200
+        .word   0xFEBE, 0x0100
+        .word   0xFEC7, 0x1000          | pointer 0x0010FECA at 0x10FEC6
+        .word   0xFEC8, 0xFE00
+        .word   0xFEC9, 0xCA00
+        .word   0xFEDF, 0x0200
+        .word   0xFEE1, 0x0A00
+        .word   0
 
 |---------------------------------------------------------------------------
 | SYSTEM_RETURN : the game hands control back after a USER request
@@ -480,6 +520,11 @@ system_io:
         move.b  d1,BIOS_STATCHANGE_RAW
 
         addq.l  #1,BIOS_FRAME_COUNTER
+        addq.b  #1,(0x10F749).l         | games seed random numbers from this
+        tst.b   PV_HLE                  | (otherwise the drive service does it)
+        beq     3f
+        bsr     cd_heartbeat
+3:
         move.w  d1,-(sp)
         bsr     cdda_poll
         move.w  (sp)+,d1
@@ -503,6 +548,15 @@ system_io:
         move.b  d2,BIOS_START_FLAG
         jsr     (HDR_PLAYER_START).w
 9:      rts
+
+| Two counters that climb together while the drive is working.  Some games
+| watch the second one and report a disc error if it never moves.
+cd_heartbeat:
+        addq.b  #1,(0x10FE84).l
+        bne     1f
+        clr.b   (0x10FE85).l
+1:      addq.b  #1,(0x10FE85).l
+        rts
 
 | a0 = player block (status, previous, current, change, repeat, timer)
 | d0 = raw port value (active low)
@@ -581,20 +635,39 @@ cdda_poll:
         lea     UPLOAD_ZONE+1,a0
         adda.l  d0,a0
         tst.b   PV_HLE
-        bne     1f
-        move.b  d0,REG_BUSREQ_Z80
-1:      move.b  (a0),d1
+        beq     3f
+        | emulator-assisted mode: watch for a change
+        move.b  (a0),d1
         lsl.w   #8,d1
         move.b  2(a0),d1
-        tst.b   PV_HLE
-        bne     2f
-        move.b  d0,REG_BUSREL_Z80
-2:
         cmp.w   PV_CDDA_LAST,d1
         beq     9f
         move.w  d1,PV_CDDA_LAST
         move.w  d1,d0
-        bsr     cdda_issue
+        bra     cdda_issue
+        | hardware mode: take the request and clear it, which is what the
+        | sound program expects before it posts the next one
+3:      move.b  d0,REG_BUSREQ_Z80
+        move.b  (a0),d1
+        lsl.w   #8,d1
+        move.b  2(a0),d1
+        cmp.w   #0xFF00,d1              | command 0xFF: nothing posted
+        bcc     8f
+        tst.w   d1
+        beq     8f
+        btst    #9,d1                   | a play request needs a track
+        bne     4f
+        tst.b   d1
+        beq     8f
+4:      clr.b   (a0)
+        clr.b   2(a0)
+        move.b  d0,REG_BUSREL_Z80
+        and.w   #0x7FFF,d1              | the top bit only marks it as new
+        cmp.w   #0x0800,d1
+        bcc     9f
+        move.w  d1,d0
+        bra     cdda_issue
+8:      move.b  d0,REG_BUSREL_Z80
 9:      rts
 
 |===========================================================================
@@ -910,13 +983,22 @@ biosf_loadfilex:
 
 load_common:
         move.b  d0,REG_WATCHDOG
+        move.l  (0x68).w,d0             | note the game's vblank handler
+        cmp.l   #rom_start,d0
+        bcc     lc_batch
+        move.l  d0,CD_GAME_VBL
+
+| A list may be longer than the table: work through it in batches.  One
+| slot always stays empty because the loading screen of some emulators
+| uses the memory right behind a completely full table.
+lc_batch:
         lea     CD_FILE_TABLE,a1
         move.w  #33*32/4-1,d0
 1:      clr.l   (a1)+
         dbra    d0,1b
 
         lea     CD_FILE_TABLE,a1
-        moveq   #31,d6                  | at most 32 files
+        moveq   #30,d6                  | at most 31 files per batch
 2:      tst.b   (a0)
         beq     6f
         movea.l a1,a2
@@ -937,17 +1019,13 @@ load_common:
         lea     32(a1),a1
         dbra    d6,2b
 
-        moveq   #0,d7                   | table completely full: the emulator's
-                                        | loading screen would reuse the memory
-                                        | right behind it, so load silently
 6:      tst.b   CD_FILE_TABLE
         beq     9f
         tst.b   PV_HLE
         bne     8f
         bsr     lle_load_table
-        bra     9f
-8:
-        move.w  PAL_BACKDROP,PV_BACKDROP
+        bra     5f
+8:      move.w  PAL_BACKDROP,PV_BACKDROP
         move.w  VRAM_MOD,-(sp)          | the loading screen must not disturb
         clr.b   CD_READY
         move.b  d7,BIOS_LOADANIM
@@ -960,7 +1038,12 @@ load_common:
         clr.b   BIOS_LOADANIM
         move.b  #1,CD_READY
         clr.b   REG_UPLOAD_EN
-9:      move.b  d0,REG_WATCHDOG
+5:      move.b  d0,REG_WATCHDOG
+        tst.b   (a0)                    | more files in the list?
+        bne     lc_batch
+9:      move.b  #1,(0x10F6DB).l         | state games may look at afterwards
+        move.b  #1,(0x10FEC4).l
+        move.b  d0,REG_WATCHDOG
         movem.l (sp)+,d0-d7/a0-a6
         rts
 
@@ -1342,21 +1425,14 @@ card_cmd_load:
 
 | 3: save BIOS_CARD_SIZE bytes from BIOS_CARD_START
 card_cmd_save:
-        bsr     card_find
-        bne     1f
-        move.w  d5,d0                   | replace an existing save
-        addq.w  #3,d0
-        moveq   #0,d4
-        CARD_RD d0,d4
-        bsr     card_release
-1:      | blocks needed
+        | blocks needed
         moveq   #0,d7
         move.w  BIOS_CARD_SIZE,d7
         add.l   #63,d7
         lsr.l   #6,d7
         bne     2f
         moveq   #1,d7
-2:      | enough free blocks?
+2:      | free blocks
         moveq   #0,d2
         moveq   #CARD_FIRSTBLK,d4
 3:      bsr     card_next_free
@@ -1364,8 +1440,33 @@ card_cmd_save:
         addq.w  #1,d2
         addq.w  #1,d4
         bra     3b
-4:      cmp.w   d7,d2
-        bcs     card_save_full
+4:      move.w  d2,-(sp)
+        bsr     card_find               | an existing save gives its blocks back
+        movem.w (sp)+,d2
+        bne     7f
+        move.w  d5,d0
+        addq.w  #3,d0
+        moveq   #0,d4
+        CARD_RD d0,d4
+        move.w  d4,d3                   | length of the old chain
+        moveq   #CARD_NBLK-1,d6
+5:      cmp.w   #CARD_FIRSTBLK,d3
+        bcs     6f
+        cmp.w   #CARD_NBLK,d3
+        bcc     6f
+        addq.w  #1,d2
+        move.w  d3,d0
+        add.w   #CARD_FAT1,d0
+        moveq   #0,d3
+        CARD_RD d0,d3
+        dbra    d6,5b
+6:      cmp.w   d7,d2
+        bcs     card_full               | does not fit: the old save stays
+        bsr     card_release
+        bra     8f
+7:      cmp.w   d7,d2
+        bcs     card_full
+8:
         | free directory entry
         move.w  #CARD_DIR,d5
         moveq   #CARD_DIR_N-1,d6

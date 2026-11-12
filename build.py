@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Zlib
 # Copyright (c) 2026 Imaha486
 """Build script for OpenNCD BIOS.
    Produces  out/neocd.bin      (byte-swapped word order, as NeoRaine expects)

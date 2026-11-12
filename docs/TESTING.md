@@ -34,6 +34,18 @@ Nobody listened to it. It was checked indirectly:
 
 After the full test runs, one change was made: the sector interrupt handler now writes a single mode word to the transfer controller instead of nine. With that final build, all five games were booted again on the libretro core, and Viewpoint was booted again on MAME and on NeoRaine. The longer play sessions in the table above were not repeated.
 
+## Version 2.1
+
+The table above was produced with 2.0. For 2.1 the following was run:
+
+- **Self-test disc** (`tests/`) on the NeoCD libretro core: a 40-file load list, a 300-byte and a 100-byte memory card save with read-back, and an 8000-byte save that must fail without destroying the existing one. All pass. The same disc on 2.0 loads 32 of 40 files and loses the save.
+- **Large directory**: Viewpoint with 700 extra files in the root directory boots on the libretro core. On 2.0 it does not.
+- **Regression, libretro core**: all five games boot; The King of Fighters '94 was played into a fight; play commands for the expected tracks were logged in four games.
+- **Regression, MAME**: The King of Fighters '94 boots and its first track plays. The other four were not run again.
+- **Regression, NeoRaine 1.4.3**: The King of Fighters '94 was played into a fight with the expected audio tracks opened; Quiz King of Fighters reached the board. The other three were not run again.
+
+The new system work area values, the sound command call and the multi-sector PAT handling have no test of their own: none of the five games depends on them.
+
 ## Not tested
 
 - Any game other than the five above
@@ -41,7 +53,7 @@ After the full test runs, one change was made: the sector interrupt handler now 
 - Raine versions after NeoRaine 1.4.3
 - FinalBurn Neo
 - Real hardware
-- Two-player input, and discs with more than 600 files in the root directory
+- Two-player input
 
 ---
 
@@ -79,6 +91,18 @@ After the full test runs, one change was made: the sector interrupt handler now 
 
 一通りのテストを終えた後で、1 か所だけ変更を入れました。セクタ割り込みの処理が転送コントローラに書き込む値を、9 語から動作モードの 1 語だけに減らしています。この最終ビルドでは、libretro コアで 5 本すべて、MAME と NeoRaine でビューポイントの起動を確かめ直しました。上の表にある長めのプレイは繰り返していません。
 
+## バージョン 2.1
+
+上の表は 2.0 で取ったものです。2.1 では次を実行しました。
+
+- **自己テスト用ディスク**（`tests/`）を NeoCD libretro コアで実行: 40 本のロードリスト、300 バイトと 100 バイトのメモリーカード保存と読み戻し、既存データを壊さずに失敗すべき 8000 バイトの保存。すべて合格。同じディスクを 2.0 で動かすと、40 本中 32 本しか読まれず、セーブも失われます。
+- **大きなディレクトリ**: ルートディレクトリに 700 本のファイルを足したビューポイントが libretro コアで起動。2.0 では起動しません。
+- **回帰確認（libretro コア）**: 5 本すべて起動。ザ・キング・オブ・ファイターズ'94 は対戦まで。4 本で想定どおりのトラックへの再生命令を確認。
+- **回帰確認（MAME）**: ザ・キング・オブ・ファイターズ'94 が起動し、最初のトラックが再生されることを確認。残り 4 本は再実行していません。
+- **回帰確認（NeoRaine 1.4.3）**: ザ・キング・オブ・ファイターズ'94 を対戦まで進め、想定どおりの音声トラックが開かれることを確認。クイズ キング・オブ・ファイターズはすごろく画面まで。残り 3 本は再実行していません。
+
+追加したシステムワークエリアの値、サウンドコマンドのコール、複数セクタにまたがる PAT の処理には専用のテストがありません。5 本のどれもこれらに依存していないためです。
+
 ## 未検証
 
 - 上の 5 本以外のゲーム
@@ -86,4 +110,4 @@ After the full test runs, one change was made: the sector interrupt handler now 
 - NeoRaine 1.4.3 より後の Raine
 - FinalBurn Neo
 - 実機
-- 2 人プレイの入力、ルートディレクトリに 600 本を超えるファイルがあるディスク
+- 2 人プレイの入力

@@ -12,7 +12,7 @@ It is meant for emulators only. It has never been run on a real console.
 
 ## Status
 
-Version 2.0. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
+Version 2.1. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
 
 | Emulator | Mode | Result |
 |---|---|---|
@@ -61,11 +61,12 @@ The build is deterministic. Pushing a tag such as `v2.0` makes GitHub Actions bu
 | `font.py` | The hand-drawn 5x7 font and progress bar tiles |
 | `build.py` | Assembles, places tables and font, checks fixed addresses, writes both images |
 | `tools/similarity_check.py` | Compares a build against a reference ROM you supply |
+| `tests/` | Self-test disc: a 40-file load list and memory card round trips |
 
 ## What is implemented
 
 - Boot from disc: ISO 9660 root directory, `IPL.TXT`, loading of PRG, FIX, SPR, Z80, PCM and PAT files
-- `BIOSF_LOADFILE`, `BIOSF_LOADFILEX`, `BIOSF_UPLOAD`, `BIOSF_CDDACMD`, `BIOSF_VIDEOEN`, `BIOSF_RESETGAME`, `BIOSF_CDPLAYER`
+- `BIOSF_LOADFILE`, `BIOSF_LOADFILEX`, `BIOSF_UPLOAD`, `BIOSF_CDDACMD`, `BIOSF_VIDEOEN`, `BIOSF_RESETGAME`, `BIOSF_CDPLAYER`, and the sound command call at `$C00576`
 - `SYSTEM_INT1`, `SYSTEM_INT2`, `SYSTEM_RETURN`, `SYSTEM_IO`, `CREDIT_CHECK`, `CREDIT_DOWN`
 - `CARD` and `CARD_ERROR` on the internal backup RAM, `FIX_CLEAR`, `LSP_1st`, `MESS_OUT`, `CONTROLLER_SETUP`
 - CD audio with looping and play-once, by BIOS call or by the command pair games leave in Z80 RAM
@@ -80,7 +81,8 @@ The build is deterministic. Pushing a tag such as `v2.0` makes GitHub Actions bu
 - `MESS_OUT` commands 8 and 9 (8x16 text) are implemented from an ambiguous description.
 - The random table is original, so random sequences differ from the original ROM.
 - In MAME, a game that calls a load in user mode keeps receiving vertical blank interrupts during the load, because MAME does not emulate the interrupt mask register. The test games are not affected.
-- At most 600 files in the root directory and 32 files per load call.
+- The track list a real BIOS keeps in RAM (`$10F570`) is not filled in, so a game that reads the disc's table of contents from there sees zeroes.
+- CD audio commands 3 and 6 are documented differently by different sources. Here 2 and 6 pause and 3 and 7 resume.
 
 ## Contributing
 
@@ -88,7 +90,9 @@ Bug reports with the emulator, its version and the game are welcome. Before send
 
 ## Legal
 
-OpenNCD BIOS is released under the [MIT License](LICENSE).
+OpenNCD BIOS is released under the [zlib License](LICENSE). You may bundle `neocd.bin` with an emulator without adding any notice. If you distribute a modified version, mark it clearly as modified and do not present it as the original.
+
+Versions up to and including 2.0 were released under the MIT License, which still applies to those versions.
 
 NEOGEO and NEOGEO CD are trademarks of SNK CORPORATION. This project is not affiliated with or endorsed by SNK. The names are used only to say what the software is compatible with.
 

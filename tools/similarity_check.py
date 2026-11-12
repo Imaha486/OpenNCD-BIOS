@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Zlib
 # Copyright (c) 2026 Imaha486
 """Compare a build of OpenNCD BIOS with a reference ROM that you supply.
 
