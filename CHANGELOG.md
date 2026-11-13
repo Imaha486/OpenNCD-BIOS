@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4
+
+Sound. Found by running the same games under an original BIOS and under this one in the same emulator, and comparing what reaches the sound hardware.
+
+- Fixed: the sound driver is now told to initialise itself (command 3, sent twice) after the sound CPU is started, as a console does. Without it a driver that waits for that command stays silent. This is the suspected cause of a report that Last Resort has neither music nor sound effects; that game was not available for testing.
+- Fixed: a sample map passed to `BIOSF_UPLOAD` (type 5) was ignored when the length field was zero. Games leave it at zero; the records are now read until one starts with `0000` or `FFFF`.
+- Fixed: `BIOSF_UPLOAD` now advances the source pointer as well as the destination, so a game can upload a long block in consecutive calls.
+- Changed: in hardware mode the whole sample memory is filled with `08` (silence) before the game is loaded. It used to be left at zero.
+
 ## 2.3
 
 - Fixed: Raine 0.98 could not start a game. Current Raine versions load the game themselves and then start the BIOS at `BIOSF_RESETGAME` (`$C00582`) without patching it, so the BIOS took itself to be on real CD hardware and waited for a drive that Raine does not emulate. The BIOS now recognises this way of starting.

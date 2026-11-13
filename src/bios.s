@@ -176,7 +176,7 @@ rom_start:
 | Identification
 |---------------------------------------------------------------------------
         .org    0x100
-        .ascii  "OpenNCD BIOS 2.3 - clean-room CD system ROM for emulators. "
+        .ascii  "OpenNCD BIOS 2.4 - clean-room CD system ROM for emulators. "
         .ascii  "Original work, contains no SNK code. "
         .balign 2
 
@@ -407,9 +407,7 @@ boot:
         bsr     lsp_1st
 
         | (re)start the sound CPU with the driver loaded from disc
-        clr.b   REG_Z80RST
-        move.b  d0,REG_WATCHDOG
-        move.b  #0xFF,REG_Z80RST
+        bsr     z80_start
 
         | USER request 0 : game initialisation
         clr.b   PV_STATE
@@ -421,6 +419,31 @@ boot:
         jmp     (HDR_USER).w
 
 |---------------------------------------------------------------------------
+| Start the sound CPU on the program in its memory and tell the sound
+| driver to initialise itself (command 3, sent twice), as a console does
+| before a game runs.
+z80_start:
+        movem.l d0-d1,-(sp)
+        clr.b   REG_Z80RST
+        move.b  d0,REG_WATCHDOG
+        move.b  #0xFF,REG_Z80RST
+        moveq   #1,d1
+1:      bsr     z80_wait
+        move.b  #3,(0x320000).l
+        dbra    d1,1b
+        bsr     z80_wait
+        movem.l (sp)+,d0-d1
+        rts
+z80_wait:                               | about two frames
+        move.l  d1,-(sp)
+        moveq   #4,d1
+2:      move.w  #8000,d0
+        move.b  d0,REG_WATCHDOG
+3:      dbra    d0,3b
+        dbra    d1,2b
+        move.l  (sp)+,d1
+        rts
+
 | values the system work area holds on a running console
 init_sysvars:
         lea     sysvar_list(pc),a0
@@ -964,7 +987,15 @@ mess_repi:
 | selected by BIOS_UPZONE / BIOS_UPBANK at BIOS_UPDEST.
 biosf_upload:
         movem.l d0-d1/a0-a1,-(sp)
-        tst.l   BIOS_UPSIZE
+        move.b  BIOS_UPZONE,d0
+        and.b   #0x0F,d0
+        cmp.b   #5,d0                   | a sample map carries no length
+        bne     0f
+        tst.b   PV_UPOLD
+        bne     0f
+        bsr     lle_upload
+        bra     9f
+0:      tst.l   BIOS_UPSIZE
         beq     9f
         move.b  BIOS_UPZONE,d0
         move.b  d0,d1

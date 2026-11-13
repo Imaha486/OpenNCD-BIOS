@@ -16,17 +16,17 @@ OpenNCD BIOS was written from four kinds of source, and nothing else:
 
 The original BIOS images were **never disassembled, traced or copied from**. They were used in two ways only:
 
-- As a black box: run the same game with the same input and compare the picture and the audio track that gets opened.
+- As a black box: run the same game with the same input and compare what comes out. Up to 2.3 that meant the picture and the audio track that gets opened. Since 2.4 it also means the commands that reach the sound CPU, the sample addresses the sound chip is given, and the contents of the sound program memory and the sample memory after the run. All of these are results of running the game; none is BIOS code.
 - After the fact: a byte-by-byte comparison of the finished image against them, to measure similarity.
 
 ## Where the image matches an original ROM, and why
 
-Run `tools/similarity_check.py` against your own reference ROM to reproduce this. For version 2.3, against the two reference images available to the author:
+Run `tools/similarity_check.py` against your own reference ROM to reproduce this. For version 2.4, against the two reference images available to the author:
 
 | Measure | Result |
 |---|---|
-| Code bytes in use (tables excluded) | 7,384 |
-| Bytes equal at the same offset | 57 at most |
+| Code bytes in use (tables excluded) | 7,559 |
+| Bytes equal at the same offset | 59 at most |
 | Runs of 12 or more bytes that also occur anywhere in the reference | 22 at most |
 
 The shared runs fall into these groups:
@@ -72,17 +72,17 @@ OpenNCD BIOS は、次の 4 種類の情報だけをもとに書いています�
 
 純正 BIOS のイメージは、**逆アセンブルも、トレースも、流用もしていません**。使い道は次の 2 つだけです。
 
-- ブラックボックスとしての比較。同じゲームに同じ入力を与え、画面と、開かれる音声トラックを見比べる。
+- ブラックボックスとしての比較。同じゲームに同じ入力を与え、出てくるものを見比べる。2.3 までは画面と、開かれる音声トラック。2.4 からは、サウンド CPU に届くコマンド、サウンドチップに渡されるサンプルの番地、実行後のサウンドプログラム用メモリとサンプル用メモリの内容も比べています。どれもゲームを動かした結果であり、BIOS のコードではありません。
 - 完成後の検査。出来上がったイメージとバイト単位で比較し、どれだけ似ているかを測る。
 
 ## 純正 ROM と一致する箇所とその理由
 
-`tools/similarity_check.py` に手元の参照 ROM を与えれば、同じ検査を再現できます。バージョン 2.3 を、作者の手元にある 2 つの参照イメージと比べた結果は次のとおりです。
+`tools/similarity_check.py` に手元の参照 ROM を与えれば、同じ検査を再現できます。バージョン 2.4 を、作者の手元にある 2 つの参照イメージと比べた結果は次のとおりです。
 
 | 項目 | 結果 |
 |---|---|
-| 使用中のコードのバイト数（数表を除く） | 7,384 |
-| 同じ番地で一致するバイト数 | 最大 57 |
+| 使用中のコードのバイト数（数表を除く） | 7,559 |
+| 同じ番地で一致するバイト数 | 最大 59 |
 | 参照側のどこかにも現れる 12 バイト以上の並び | 最大 22 か所 |
 
 共通の並びの内訳は次のとおりです。

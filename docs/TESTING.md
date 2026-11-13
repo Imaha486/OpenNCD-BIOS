@@ -65,6 +65,22 @@ Raine 0.98 (64-bit Windows build, run under Wine) with games loaded through its 
 
 Regression for 2.3: six games and the self-test disc on the libretro core; The King of Fighters '94 on MAME 0.264 (title, logo, in-game load); The King of Fighters '94 to team select on NeoRaine 1.4.3.
 
+## Version 2.4 (sound)
+
+Method: the NeoCD libretro core was given a test hook that logs every command sent to the sound CPU and every sample the sound chip is told to play, and dumps the sound program memory and the sample memory at the end of a run. The same game was then run with an original BIOS and with this one.
+
+- Before 2.4, the original sent command 3 to the sound driver twice before the game's first own command; this BIOS sent none. With 2.4 the opening sequence is the same.
+- Before 2.4, the original left `08` in every unused byte of sample memory; this BIOS left zero. With 2.4, sound program memory and sample memory are byte-for-byte identical after comparable runs of Viewpoint, The King of Fighters '94, Quiz King of Fighters and Twinkle Star Sprites (the last one compared in the first story-mode match).
+- Flying Power Disc was compared in different demo scenes, so its memories differ; the differences are the ones expected from different voice files being loaded.
+
+What this does not show:
+
+- Last Resort was not available. Whether 2.4 makes it sound is unknown.
+- A report that the charge shot in Twinkle Star Sprites is silent when fired at "READY GO" was not reproduced: nobody listened, and the comparison above found no difference in that match. It may still be there.
+- The comparison was made in hardware mode only. In Raine and NeoRaine the emulator loads the sound data itself.
+
+Regression for 2.4: seven discs and the self-test on the libretro core; The King of Fighters '94 into a fight on MAME 0.264; The King of Fighters '94 with audio on NeoRaine 1.4.3; Twinkle Star Sprites into a match with audio on Raine 0.98.
+
 ## Not tested
 
 - Any game other than the five above
@@ -140,6 +156,22 @@ Raine 0.98（64 ビット Windows 版を Wine 上で実行）で、メニュー�
 - 未実施: ティンクルスタースプライツ、および各ゲームの最初のメニューより先。テスト用スクリプトから、Raine が A ボタンに割り当てているキーを特定できなかったため、実際のプレイはしていません。
 
 2.3 の回帰確認: libretro コアで 6 本と自己テスト用ディスク。MAME 0.264 でザ・キング・オブ・ファイターズ'94（タイトル、ロゴ、ゲーム中のロード）。NeoRaine 1.4.3 でザ・キング・オブ・ファイターズ'94 をチーム選択まで。
+
+## バージョン 2.4（サウンド）
+
+方法: NeoCD libretro コアにテスト用の仕掛けを入れ、サウンド CPU に送られるコマンドと、サウンドチップが再生を指示されるサンプルをすべて記録し、実行の最後にサウンドプログラム用メモリとサンプル用メモリを書き出すようにしました。そのうえで、同じゲームを純正 BIOS とこの BIOS で動かして比べています。
+
+- 2.4 より前: 純正はゲーム自身の最初のコマンドより前に、サウンドドライバへコマンド 3 を 2 回送っていました。この BIOS は送っていませんでした。2.4 で冒頭の並びが一致しました。
+- 2.4 より前: 純正はサンプル用メモリの未使用部分をすべて `08` で埋めていました。この BIOS はゼロのままでした。2.4 では、ビューポイント、ザ・キング・オブ・ファイターズ'94、クイズ キング・オブ・ファイターズ、ティンクルスタースプライツ（ストーリーモード最初の対戦で比較）について、サウンドプログラム用メモリとサンプル用メモリが 1 バイトも違わず一致します。
+- フライングパワーディスクは別々のデモ場面で比べたため、メモリの内容は異なります。違いは、読み込まれた音声ファイルが違うことから予想されるとおりのものです。
+
+これで分からないこと:
+
+- ラストリゾートは手元にありません。2.4 で音が出るようになったかは不明です。
+- ティンクルスタースプライツで「READY GO」と同時に撃ったチャージショットが無音になる、という報告は再現できていません。耳で聴いた確認はしておらず、上の比較ではその対戦に違いは見つかりませんでした。不具合が残っている可能性はあります。
+- 比較はハードウェアモードだけで行いました。Raine と NeoRaine では、サウンドのデータはエミュレータ自身が読み込みます。
+
+2.4 の回帰確認: libretro コアでディスク 7 枚と自己テスト。MAME 0.264 でザ・キング・オブ・ファイターズ'94 を対戦まで。NeoRaine 1.4.3 でザ・キング・オブ・ファイターズ'94 を音声付きで。Raine 0.98 でティンクルスタースプライツを音声付きで対戦まで。
 
 ## 未検証
 

@@ -852,6 +852,7 @@ pat_feed:
 
 pat_record:
         lea     PAT_REC,a2
+pat_record_a2:
         move.w  (a2),d3
         beq     9f
         cmp.w   #0xFFFF,d3
@@ -985,8 +986,7 @@ lle_load_table:
         beq     13f
         tst.b   PV_BOOTED               | not during the first boot
         beq     13f
-        clr.b   REG_Z80RST              | restart the sound CPU
-        move.b  #0xFF,REG_Z80RST
+        bsr     z80_start               | restart the sound CPU
 13:     tst.b   PV_BOOTED
         beq     17f
         move.l  CD_GAME_VBL,(0x68).w    | the game gets its vblank back
@@ -1229,6 +1229,7 @@ lle_boot:
         move.w  #0x2100,sr
 
         bsr     ls_begin
+        bsr     pcm_silence
         move.b  CD_TICK,d1              | let the drive spin up
 2:      move.b  d0,REG_WATCHDOG
         bsr     ls_tick
@@ -1263,6 +1264,33 @@ lle_boot:
         beq     5f
         move.l  d0,(0x68).w
 5:      clr.b   LD_BUSY
+        rts
+
+| Fill the whole sample memory with 0x08.  In the sample format that is
+| silence which stays put: zeroes would make a channel that runs into an
+| unused area drift away from the centre line.
+pcm_silence:
+        movem.l d0-d2/a0,-(sp)
+        st      WIN_BUSY
+        move.b  #1,REG_TRANSAREA
+        move.b  d0,REG_BUSREQ_PCM
+        moveq   #0,d2                   | bank
+1:      move.b  d2,REG_PCMBANK
+        lea     UPLOAD_ZONE+1,a0
+        moveq   #63,d1                  | 64 x 8 KiB, watchdog in between
+2:      move.w  #0x1FFF,d0
+        move.b  d0,REG_WATCHDOG
+3:      move.b  #0x08,(a0)
+        addq.l  #2,a0
+        dbra    d0,3b
+        bsr     ls_tick
+        dbra    d1,2b
+        addq.w  #1,d2
+        cmp.w   #2,d2
+        bne     1b
+        move.b  d0,REG_BUSREL_PCM
+        clr.b   WIN_BUSY
+        movem.l (sp)+,d0-d2/a0
         rts
 
 ipl_name:
@@ -1434,12 +1462,28 @@ lle_upload:
         moveq   #FT_Z80,d0
         moveq   #0,d1
         bsr     sink_open
-        clr.b   PAT_FILL
-        move.l  BIOS_UPSIZE,d0
-        bsr     pat_feed
+        | A sample map handed over this way is not counted by its length
+        | (games leave that at zero): records run until one starts with
+        | 0x0000 or 0xFFFF.
+        movem.l d4/a2,-(sp)
+        movea.l a0,a2
+        move.w  #255,d4
+6:      move.w  (a2),d0
+        beq     7f
+        cmp.w   #0xFFFF,d0
+        beq     7f
+        bsr     pat_record_a2
+        lea     10(a2),a2
+        dbra    d4,6b
+7:      movem.l (sp)+,d4/a2
         bsr     sink_close
         move.l  (sp)+,d6
-up_end: clr.l   BIOS_UPSIZE
+        clr.l   BIOS_UPSIZE
+        movem.l (sp)+,d0-d3/a0
+        rts
+up_end: move.l  BIOS_UPSIZE,d0          | the source pointer moves on as well
+        add.l   d0,BIOS_UPSRC
+        clr.l   BIOS_UPSIZE
         movem.l (sp)+,d0-d3/a0
         rts
 | d0 = sink type, d1 = position, a0 = source, size from BIOS_UPSIZE

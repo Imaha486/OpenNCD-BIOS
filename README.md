@@ -12,7 +12,7 @@ It is meant for emulators only. It has never been run on a real console.
 
 ## Status
 
-Version 2.3. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
+Version 2.4. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
 
 | Emulator | Mode | Result |
 |---|---|---|
