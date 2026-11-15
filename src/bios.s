@@ -162,7 +162,7 @@ rom_start:
         .long   jt_cdirq23              | 23
         .long   jt_spurious             | 24 spurious
         .long   irq_timer               | 25 level 1 : raster timer
-        .long   irq_vblank              | 26 level 2 : vertical blank
+        .long   irq_vblank_vec          | 26 level 2 : vertical blank
         .long   irq_ignore              | 27 level 3
         .long   irq_ignore              | 28
         .long   irq_ignore              | 29
@@ -176,7 +176,7 @@ rom_start:
 | Identification
 |---------------------------------------------------------------------------
         .org    0x100
-        .ascii  "OpenNCD BIOS 2.4 - clean-room CD system ROM for emulators. "
+        .ascii  "OpenNCD BIOS 2.5 - clean-room CD system ROM for emulators. "
         .ascii  "Original work, contains no SNK code. "
         .balign 2
 
@@ -269,10 +269,20 @@ system_int2:
 
 | level 2 on CD hardware: vertical blank (only used while the system
 | vector table is selected; games normally own the vector)
+| At least one game (it brings its own file loader) fetches this vector
+| from the ROM table and uses the long word two bytes into the routine as
+| the address of the system's vblank service, which it then installs
+| while it loads.  So the routine has to be a plain absolute jump.
+irq_vblank_vec:
+        jmp     (irq_vblank).l
+
 irq_vblank:
         tst.b   LD_BUSY                 | loading: nothing else may run
         bne     ld_vblank
-        tst.b   BIOS_SYSTEM_MODE
+        tst.b   PV_HLE                  | no drive to talk to: requests a game
+        beq     1f                      | queued count as taken
+        move.b  (0x10F651).l,(0x10F650).l
+1:      tst.b   BIOS_SYSTEM_MODE
         bpl     system_int1
         move.l  CD_GAME_VBL,-(sp)       | game owns the vblank
         rts
@@ -377,6 +387,10 @@ boot:
         move.l  #BIOS_MESS_BUFFER,BIOS_MESS_POINT
         move.b  #1,CD_READY
         bsr     init_sysvars
+        move.l  #load_screen_init,(0x11C808).l      | hooks games call for the
+        move.l  #load_screen_progress,(0x11C80C).l  | loading screen
+        move.l  #ls_default_anim,(0x11C810).l       | and the animation they play
+        move.w  #1,(0x11C814).l
 
         | nationality from the configuration port
         move.w  REG_CDCONFIG,d0
@@ -412,6 +426,7 @@ boot:
         | USER request 0 : game initialisation
         clr.b   PV_STATE
         st      PV_BOOTED
+        bsr     low_mirror
         clr.b   BIOS_USER_REQUEST
         clr.b   BIOS_USER_MODE
         clr.b   BIOS_SYSTEM_MODE
@@ -473,7 +488,7 @@ sysvar_list:                            | address - 0x100000, value, pad
         .word   0xFEC7, 0x1000          | pointer 0x0010FECA at 0x10FEC6
         .word   0xFEC8, 0xFE00
         .word   0xFEC9, 0xCA00
-        .word   0xFEDF, 0x0200
+        .word   0xFEDF, 0x0100          | console type: top loader
         .word   0xFEE1, 0x0A00
         .word   0
 
@@ -1155,6 +1170,24 @@ load_screen_init:
         bsr     ls_bar
         movem.l (sp)+,d0-d2/a0
         rts
+
+| Games with their own loader expect the system to keep a copy of the first
+| 2 KiB of program memory (vectors and header) at 0x110004.  They copy it
+| back over address 0 when they have loaded a program file.
+low_mirror:
+        movem.l d0/a0-a1,-(sp)
+        suba.l  a0,a0
+        lea     (0x110004).l,a1
+        move.w  #0x200-1,d0
+1:      move.l  (a0)+,(a1)+
+        dbra    d0,1b
+        movem.l (sp)+,d0/a0-a1
+        rts
+
+| animation script: position, width, height, frames, delay, then the tiles
+ls_default_anim:
+        .word   0x7000+38*32+27, 1, 1, 1, 30
+        .word   0x0020
 
 load_screen_progress:
         movem.l d0-d2/a0,-(sp)

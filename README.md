@@ -12,18 +12,18 @@ It is meant for emulators only. It has never been run on a real console.
 
 ## Status
 
-Version 2.4. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
+Version 2.5. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
 
 | Emulator | Mode | Result |
 |---|---|---|
-| MAME 0.264 (`neocdz`) | BIOS drives the CD hardware itself | 5 of 5 test games boot and play |
-| NeoCD libretro core (RetroArch) | BIOS drives the CD hardware itself | 5 of 5 test games boot; 2 played in depth |
-| NeoRaine 1.4.3 | Emulator loads files, BIOS provides services | 5 of 5 test games boot and play |
-| Raine 0.98 | Emulator loads files, BIOS provides services | 4 of 5 test games boot; attract mode and start button only (see the test record) |
+| MAME 0.264 (`neocdz`) | BIOS drives the CD hardware itself | 6 of 6 test games boot and play |
+| NeoCD libretro core (RetroArch) | BIOS drives the CD hardware itself | 6 of 6 test games boot; 3 played in depth |
+| NeoRaine 1.4.3 | Emulator loads files, BIOS provides services | 6 of 6 test games boot and play |
+| Raine 0.98 | Emulator loads files, BIOS provides services | 5 of 6 test games boot; attract mode and start button only (see the test record) |
 | FinalBurn Neo | BIOS drives the CD hardware itself | **Untested.** FBNeo only accepts BIOS files with known CRCs |
 | Real hardware | | **Not supported, never tried** |
 
-The five test games are Viewpoint, The King of Fighters '94, Flying Power Disc (Windjammers), Quiz King of Fighters and Twinkle Star Sprites. Nothing else has been tried, and none of them was played to the end. Details, including what "play" means for each cell and how CD audio was checked, are in [docs/TESTING.md](docs/TESTING.md).
+The six test games are Viewpoint, The King of Fighters '94, Flying Power Disc (Windjammers), Quiz King of Fighters, Twinkle Star Sprites and Shinsetsu Samurai Spirits Bushidou Retsuden (Samurai Shodown RPG). Nothing else has been tried, and none of them was played to the end. Details, including what "play" means for each cell and how CD audio was checked, are in [docs/TESTING.md](docs/TESTING.md).
 
 ## Getting it
 
@@ -69,6 +69,7 @@ The build is deterministic. Pushing a tag such as `v2.0` makes GitHub Actions bu
 - `BIOSF_LOADFILE`, `BIOSF_LOADFILEX`, `BIOSF_UPLOAD`, `BIOSF_CDDACMD`, `BIOSF_VIDEOEN`, `BIOSF_RESETGAME`, `BIOSF_CDPLAYER`, and the sound command call at `$C00576`
 - `SYSTEM_INT1`, `SYSTEM_INT2`, `SYSTEM_RETURN`, `SYSTEM_IO`, `CREDIT_CHECK`, `CREDIT_DOWN`
 - `CARD` and `CARD_ERROR` on the internal backup RAM, `FIX_CLEAR`, `LSP_1st`, `MESS_OUT`, `CONTROLLER_SETUP`
+- The sector service used by games that bring their own file loader (request queue at `$10F472`, sector buffer at `$111204`)
 - CD audio with looping and play-once, by BIOS call or by the command pair games leave in Z80 RAM
 - The ROM data tables at `$C02000`, `$C03000`, `$C04000` and `$C04200`
 - Its own loading screen and exception screen
@@ -81,6 +82,8 @@ The build is deterministic. Pushing a tag such as `v2.0` makes GitHub Actions bu
 - `MESS_OUT` commands 8 and 9 (8x16 text) are implemented from an ambiguous description.
 - The random table is original, so random sequences differ from the original ROM.
 - The track list a real BIOS keeps in RAM (`$10F570`) is not filled in, so a game that reads the disc's table of contents from there sees zeroes.
+- The console type reported in `$10FEDF` is 1 (top loader). The CDZ-only way of loading, where the system itself distributes sectors a game's own loader asked for, is not implemented.
+- A game that draws its own loading or error screen with the system font gets this project's font, whose tile layout is not the original one. Samurai Shodown RPG shows "LOADING" and a bar that does not move.
 - CD audio commands 3 and 6 are documented differently by different sources. Here 2 and 6 pause and 3 and 7 resume.
 
 ## Contributing

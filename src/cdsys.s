@@ -80,6 +80,11 @@
         .equ    PAT_FILL,       PV_BASE+0xE9    | bytes in PAT_REC
         .equ    PAT_REC,        PV_BASE+0xEA    | one 10 byte record (..0xF3)
         .equ    LD_BUSY,        PV_BASE+0xF4    | the BIOS is loading from the disc
+        .equ    GR_ACTIVE,      PV_BASE+0xF5    | a game reads sectors by itself
+        .equ    GR_SEEK,        PV_BASE+0xF6    | position the drive (again)
+        .equ    GR_TMR,         PV_BASE+0xF7
+        .equ    GR_MSF,         PV_BASE+0xF8    | next sector wanted
+        .equ    DIR_NODISC,     PV_BASE+0xFC
         .equ    DEFER_N,        PV_BASE+0xCF
         .equ    DEFER_LIST,     PV_BASE+0xD0    | up to 8 entry pointers
 
@@ -90,6 +95,20 @@
         .equ    FE_LBA,         22
         .equ    FE_SIZE,        26
         .equ    FE_TYPE,        30
+
+| Interface for games that bring their own file loader.  Such a game queues
+| drive requests, programs the decoder itself and then waits for the
+| system to put one sector after the other into a fixed buffer.
+        .equ    GQ_BUF,         0x10F472        | request bytes
+        .equ    GQ_RD,          0x10F650        | taken up to here
+        .equ    GQ_WR,          0x10F651        | queued up to here
+        .equ    G_READY,        0x10F657        | bit 0: game waits for a sector
+        .equ    G_BUSY,         0x10F6B6        | set by the game while it reads
+        .equ    G_COUNT,        0x10F688        | sectors still to deliver (word)
+        .equ    G_DIRSEC,       0x10F6A6        | root directory: sectors (word)
+        .equ    G_DIRMSF,       0x10F6A8        | root directory: position (BCD)
+        .equ    G_MSF,          0x10F6C8        | position to read from (BCD)
+        .equ    G_SECBUF,       0x111204        | where the game looks for the sector
 
         .equ    FT_PRG, 0
         .equ    FT_FIX, 1
@@ -143,7 +162,10 @@ irq_cd_link:
         dbra    d1,3b
         clr.b   CD_CMDF
         addq.b  #1,CD_TICK
+        bsr     gr_link
         tst.b   RD_ACTIVE               | drive busy: keep the heartbeat going
+        bne     4f
+        tst.b   GR_ACTIVE
         bne     4f
         cmp.b   #CDS_PLAY,CDA_STATE
         beq     4f
@@ -157,6 +179,119 @@ irq_cd_link:
 cd_status_packet:
         .byte   0,0,0,0,0,0,0,0,0,0x0A
 
+| Requests queued by a game, one per service.
+|   9      read sectors from the position in G_MSF
+|   5, 6   stop reading
+| Everything else is taken and ignored.
+gr_link:
+        moveq   #0,d0
+        move.b  (GQ_RD).l,d0
+        cmp.b   (GQ_WR).l,d0
+        beq     gl_run
+        lea     (GQ_BUF).l,a0
+        move.b  (a0,d0.w),d1
+        addq.b  #1,(GQ_RD).l
+        cmp.b   #9,d1
+        beq     gl_read
+        cmp.b   #5,d1
+        beq     gl_stop
+        cmp.b   #6,d1
+        beq     gl_stop
+        rts
+gl_read:
+        tst.w   (G_COUNT).l             | nothing to read (file not on the
+        bne     1f                      | disc): finished before it began
+        clr.b   (G_BUSY).l
+        rts
+1:      moveq   #0,d0
+        move.b  (G_MSF).l,d0
+        lsl.l   #8,d0
+        move.b  (G_MSF+1).l,d0
+        lsl.l   #8,d0
+        move.b  (G_MSF+2).l,d0
+        move.l  d0,GR_MSF
+        clr.b   RD_ACTIVE
+        clr.w   DIR_COUNT               | such a game also uses the memory of
+        st      DIR_MORE                | the directory cache: look on the disc
+        clr.b   CDA_STATE               | the music gives way
+        move.b  #1,GR_ACTIVE
+        bra     gl_seek
+gl_stop:
+        tst.b   GR_ACTIVE
+        beq     9f
+gl_pause:
+        clr.b   GR_ACTIVE
+        clr.b   GR_SEEK
+        move.l  #0x60000000,d0          | pause
+        moveq   #0,d1
+        bra     cd_pack
+gl_run: move.b  GR_ACTIVE,d0
+        beq     9f
+        cmp.b   #2,d0                   | everything delivered
+        beq     gl_pause
+        tst.b   GR_SEEK
+        bne     gl_seek
+        addq.b  #1,GR_TMR
+        cmp.b   #150,GR_TMR             | two seconds without a sector
+        bcs     9f
+gl_seek:
+        clr.b   GR_SEEK
+        clr.b   GR_TMR
+        move.l  GR_MSF,d0
+        bsr     msf_to_lba
+        subq.l  #3,d0                   | begin a little early
+        bcc     1f
+        moveq   #0,d0
+1:      bsr     lba_to_msf
+        or.l    #0x30000000,d0          | "play from position"
+        moveq   #0,d1
+        bra     cd_pack
+9:      rts
+
+| a sector arrived while a game is reading (d0/d1 saved by the caller)
+gr_sector:
+        cmp.b   #1,GR_ACTIVE
+        bne     9f
+        tst.w   (G_COUNT).l
+        beq     9f
+        moveq   #0,d1
+        LCR     0x04,d1
+        lsl.l   #8,d1
+        LCR     0x05,d1
+        lsl.l   #8,d1
+        LCR     0x06,d1
+        cmp.l   GR_MSF,d1
+        beq     2f
+        bcs     9f                      | still before the wanted sector
+1:      st      GR_SEEK                 | missed it: go back
+        bra     9f
+2:      btst    #0,(G_READY).l          | the game is not looking yet
+        beq     1b
+        LCR     0x08,d0
+        LCR     0x09,d1
+        addq.b  #4,d0
+        bcc     3f
+        addq.b  #1,d1
+3:      LCW     0x04,d0
+        LCW     0x05,d1
+        LCW     0x02,#0xFF
+        LCW     0x03,#0x07
+        LCW     0x06,d0
+        move.l  #G_SECBUF,REG_DMA_DEST
+        move.l  #0x400,REG_DMA_COUNT
+        move.w  #0xFFC5,REG_DMA_PROG
+        move.b  #0x40,REG_DMA_GO
+        LCW     0x07,d0
+        clr.b   GR_TMR
+        move.l  GR_MSF,d0               | following sector
+        bsr     msf_next
+        move.l  d0,GR_MSF
+        subq.w  #1,(G_COUNT).l
+        bne     9f
+        move.b  #2,GR_ACTIVE
+9:      movem.l (sp)+,d0-d1
+        rte
+
 | vector 21: a sector has been decoded
 irq_cd_sector:
         movem.l d0-d1,-(sp)
@@ -165,6 +300,8 @@ irq_cd_sector:
         LCR     0x0D,d0                 | releases the decoder interrupt
         LCR     0x0E,d0
         LCR     0x0F,d0
+        tst.b   GR_ACTIVE
+        bne     gr_sector
         tst.b   RD_ACTIVE
         beq     9f
         tst.b   RD_READY                | previous sector not collected yet
@@ -275,6 +412,46 @@ lba_to_msf:
         movem.l (sp)+,d1-d3
         rts
 
+| d0 = 00MMSSFF (BCD) -> d0 = logical block
+msf_to_lba:
+        movem.l d1-d3,-(sp)
+        move.l  d0,d3
+        swap    d0
+        bsr     bcd_bin
+        mulu    #60,d0
+        move.l  d0,d2
+        move.l  d3,d0
+        lsr.w   #8,d0
+        bsr     bcd_bin
+        add.l   d0,d2
+        mulu    #75,d2
+        move.l  d3,d0
+        bsr     bcd_bin
+        add.l   d0,d2
+        sub.l   #150,d2
+        bcc     1f
+        moveq   #0,d2
+1:      move.l  d2,d0
+        movem.l (sp)+,d1-d3
+        rts
+bcd_bin:
+        and.l   #0xFF,d0
+        move.w  d0,d1
+        lsr.w   #4,d1
+        mulu    #10,d1
+        and.w   #0x0F,d0
+        add.w   d1,d0
+        rts
+
+| d0 = 00MMSSFF (BCD) -> the position one frame later
+msf_next:
+        move.l  d1,-(sp)
+        bsr     msf_to_lba
+        addq.l  #1,d0
+        bsr     lba_to_msf
+        move.l  (sp)+,d1
+        rts
+
 |---------------------------------------------------------------------------
 | Sector reading
 |---------------------------------------------------------------------------
@@ -282,6 +459,7 @@ lba_to_msf:
 cd_read_begin:
         movem.l d0-d1,-(sp)
         clr.b   RD_ACTIVE               | the interrupt keeps its hands off
+        clr.b   GR_ACTIVE
         move.l  d0,RD_LBA
         bsr     lba_to_msf
         move.l  d0,RD_MSF
@@ -411,6 +589,11 @@ iso_mount:
         move.l  d0,d7                   | sectors
         move.l  d6,DIR_LBA
         move.l  d7,DIR_SECTORS
+        move.w  d7,(G_DIRSEC).l         | for games that read it themselves
+        move.l  d6,d0
+        bsr     lba_to_msf
+        lsl.l   #8,d0
+        move.l  d0,(G_DIRMSF).l
         clr.b   DIR_MORE
         tst.l   d7
         beq     iso_done
@@ -501,10 +684,127 @@ dir_find:
         dbra    d5,1b
 8:      tst.b   DIR_MORE
         beq     81f
+        tst.b   DIR_NODISC
+        bne     81f
         movem.l (sp)+,d2-d5/a1-a3
         bra     dir_find_disc
 81:     moveq   #1,d2
 9:      movem.l (sp)+,d2-d5/a1-a3
+        rts
+
+| the same without falling back to the disc
+dir_find_cache:
+        st      DIR_NODISC
+        bsr     dir_find
+        sf      DIR_NODISC              | (leaves the flags alone)
+        rts
+
+| a2 -> table entry, d0 = extent, d1 = length in bytes
+fe_found:
+        move.l  d0,FE_LBA(a2)
+        move.l  d1,FE_SIZE(a2)
+        add.l   #2047,d1
+        moveq   #11,d0
+        lsr.l   d0,d1
+        add.l   d1,LD_TOTAL
+        rts
+
+| a1 -> wanted name, a3 -> name on the disc, d4 = its length.  Z = same.
+name_cmp:
+        movem.l d2-d4/a1/a3,-(sp)
+1:      move.b  (a1)+,d2                | wanted name, upper case
+        cmp.b   #';',d2
+        bne     2f
+        moveq   #0,d2
+2:      cmp.b   #'a',d2
+        bcs     3f
+        cmp.b   #'z',d2
+        bhi     3f
+        sub.b   #0x20,d2
+3:      moveq   #0,d3                   | name on the disc
+        tst.w   d4
+        beq     4f
+        move.b  (a3)+,d3
+        subq.w  #1,d4
+        cmp.b   #';',d3
+        bne     4f
+        moveq   #0,d3
+        moveq   #0,d4
+4:      cmp.b   d2,d3
+        bne     9f
+        tst.b   d2
+        bne     1b
+9:      movem.l (sp)+,d2-d4/a1/a3
+        rts
+
+| Files of the table that are not in the cache: read the directory from
+| the disc once and pick out all of them.  d5 = how many are missing.
+dir_resolve:
+        movem.l d0-d7/a0-a3,-(sp)
+        tst.b   DIR_MORE
+        beq     dr_mark
+        move.l  DIR_SECTORS,d7
+        beq     dr_mark
+        move.l  DIR_LBA,d0
+        bsr     cd_read_begin
+1:      bsr     cd_read_wait
+        lea     SECBUF,a2
+2:      moveq   #0,d6
+        move.b  d0,REG_WATCHDOG
+        move.b  (a2),d6                 | record length
+        beq     6f
+        btst    #1,25(a2)
+        bne     5f
+        moveq   #0,d4
+        move.b  32(a2),d4               | name length
+        beq     5f
+        lea     33(a2),a3
+        lea     CD_FILE_TABLE,a1
+3:      tst.b   (a1)
+        beq     5f
+        tst.b   FE_TYPE(a1)
+        bmi     4f
+        tst.l   FE_LBA(a1)
+        bne     4f
+        bsr     name_cmp
+        bne     4f
+        lea     2(a2),a0
+        bsr     get_le32
+        move.l  d0,-(sp)
+        lea     10(a2),a0
+        bsr     get_le32
+        move.l  d0,d1
+        move.l  (sp)+,d0
+        exg     a1,a2
+        bsr     fe_found
+        exg     a1,a2
+        subq.w  #1,d5
+4:      lea     32(a1),a1
+        cmpa.l  #CD_FILE_TABLE+32*32,a1
+        bcs     3b
+5:      tst.w   d5
+        ble     7f                      | all found
+        adda.w  d6,a2
+        cmpa.l  #SECBUF+2048,a2
+        bcs     2b
+6:      subq.l  #1,d7
+        beq     7f
+        bsr     cd_read_next
+        bra     1b
+7:      bsr     cd_read_end
+dr_mark:
+        lea     CD_FILE_TABLE,a1
+1:      tst.b   (a1)
+        beq     3f
+        tst.b   FE_TYPE(a1)
+        bmi     2f
+        tst.l   FE_LBA(a1)
+        bne     2f
+        move.b  #FT_NONE,FE_TYPE(a1)    | not on the disc
+2:      lea     32(a1),a1
+        cmpa.l  #CD_FILE_TABLE+32*32,a1
+        bcs     1b
+3:      movem.l (sp)+,d0-d7/a0-a3
         rts
 
 | The same search, reading the directory from the disc (used for the
@@ -906,6 +1206,8 @@ lle_load_table:
         beq     14f                     | user mode: interrupts are open anyway
         move.w  #0x2100,sr              | drive interrupts on, vblank held back
 14:     move.w  #0x0301,REG_VBLMASK
+        move.w  #0x0550,REG_CDMASK      | both drive interrupts on
+        move.b  #1,REG_CDD_ENABLE
         tst.b   PV_BOOTED               | (the first load is set up by lle_boot)
         beq     16f
         st      LD_BUSY
@@ -924,26 +1226,28 @@ lle_load_table:
 
         | pass 1: locate every file
         lea     CD_FILE_TABLE,a2
+        moveq   #0,d5                   | files the cache does not know
 1:      tst.b   (a2)
         beq     3f
+        move.b  d0,REG_WATCHDOG
         movea.l a2,a0
         bsr     file_type
         move.b  d0,FE_TYPE(a2)
         bmi     2f
+        clr.l   FE_LBA(a2)
         movea.l a2,a0
-        bsr     dir_find
+        bsr     dir_find_cache
         beq     11f
-        move.b  #FT_NONE,FE_TYPE(a2)    | not on the disc
+        addq.w  #1,d5
         bra     2f
-11:     move.l  d0,FE_LBA(a2)
-        move.l  d1,FE_SIZE(a2)
-        add.l   #2047,d1
-        moveq   #11,d0
-        lsr.l   d0,d1
-        add.l   d1,LD_TOTAL
+11:     bsr     fe_found
 2:      lea     32(a2),a2
         cmpa.l  #CD_FILE_TABLE+32*32,a2
         bcs     1b
+3:      tst.w   d5
+        beq     31f
+        bsr     dir_resolve             | one pass over the disc for the rest
+31:
 3:
         tst.b   d7
         beq     4f
@@ -991,7 +1295,9 @@ lle_load_table:
         beq     17f
         move.l  CD_GAME_VBL,(0x68).w    | the game gets its vblank back
         clr.b   LD_BUSY
-17:     move.w  #0x0331,REG_VBLMASK
+        bsr     low_mirror
+17:     clr.b   CD_FILE_TABLE           | the list has been dealt with
+        move.w  #0x0331,REG_VBLMASK
         btst    #13,d6
         beq     15f
         move.w  d6,sr
@@ -1622,7 +1928,11 @@ cda_wstart:
         clr.b   CDA_STATE
         rts
 1:      bsr     cda_rx_msf
-        move.l  d0,CDA_START
+        cmp.l   #0x000200,d0            | no such track on this disc
+        bhi     10f
+        clr.b   CDA_STATE
+        rts
+10:     move.l  d0,CDA_START
         moveq   #0,d0                   | next track number (BCD + 1)
         move.b  CDA_TRACK,d0
         addq.b  #1,d0

@@ -10,24 +10,25 @@ OpenNCD BIOS was written from four kinds of source, and nothing else:
 2. The hardware behaviour written down in open-source emulators: MAME, FinalBurn Neo, the NeoCD libretro core and Raine. These say what a register does when it is written. They do not contain the BIOS.
    - Since version 2.1 this includes the comments in the NeoCD core's own high-level BIOS replacement (`hlebios.cpp`). Its authors record what they saw a console do from the outside: which RAM bytes hold which values, and what a call leaves behind. Only such game-visible facts were taken from it (for example the heartbeat at `$10FE84`, the counter at `$10F749`, and that a posted CD audio request is cleared). No code was taken.
 3. The behaviour of NeoRaine 1.4.3 itself, which expects certain routines at fixed ROM addresses.
-4. Observation of how five games call the BIOS and which ROM addresses they read.
+4. Observation of how the test games call the BIOS and which ROM addresses they read.
+   - Since version 2.5 this includes reading the code of a game's own file loader (`EXT_SYS.PRG` of Samurai Shodown RPG). That loader is part of the game, not of the BIOS. It shows which RAM locations it fills in, which it waits on and where it expects a sector to appear; the BIOS side of that exchange was then written to fit. The sector buffer address `$111204` and the countdown at `$10F688` are also noted in a comment in MAME's `neogeocd.cpp`.
 
 ## What was not done
 
 The original BIOS images were **never disassembled, traced or copied from**. They were used in two ways only:
 
-- As a black box: run the same game with the same input and compare what comes out. Up to 2.3 that meant the picture and the audio track that gets opened. Since 2.4 it also means the commands that reach the sound CPU, the sample addresses the sound chip is given, and the contents of the sound program memory and the sample memory after the run. All of these are results of running the game; none is BIOS code.
+- As a black box: run the same game with the same input and compare what comes out. Up to 2.3 that meant the picture and the audio track that gets opened. Since 2.4 it also means the commands that reach the sound CPU, the sample addresses the sound chip is given, and the contents of the sound program memory and the sample memory after the run. For 2.5, main memory was dumped at intervals as well, to see how far a game gets. All of these are results of running the game; none is BIOS code. Tools that record the program counter were only ever run with this BIOS, never with an original one.
 - After the fact: a byte-by-byte comparison of the finished image against them, to measure similarity.
 
 ## Where the image matches an original ROM, and why
 
-Run `tools/similarity_check.py` against your own reference ROM to reproduce this. For version 2.4, against the two reference images available to the author:
+Run `tools/similarity_check.py` against your own reference ROM to reproduce this. For version 2.5, against the two reference images available to the author:
 
 | Measure | Result |
 |---|---|
-| Code bytes in use (tables excluded) | 7,559 |
-| Bytes equal at the same offset | 59 at most |
-| Runs of 12 or more bytes that also occur anywhere in the reference | 22 at most |
+| Code bytes in use (tables excluded) | 8,455 |
+| Bytes equal at the same offset | 73 at most |
+| Runs of 12 or more bytes that also occur anywhere in the reference | 26 at most |
 
 The shared runs fall into these groups:
 
@@ -66,24 +67,25 @@ OpenNCD BIOS は、次の 4 種類の情報だけをもとに書いています�
 2. オープンソースのエミュレータ（MAME、FinalBurn Neo、NeoCD libretro コア、Raine）のソースに書かれたハードウェアの挙動。「このレジスタに書くと何が起きるか」が書かれているもので、BIOS そのものは含まれていません。
    - バージョン 2.1 からは、NeoCD コアが内蔵する独自の BIOS 代替実装（`hlebios.cpp`）のコメントも参照しています。そこには、本体を外から観察して分かったこと（RAM のどのバイトにどんな値が入るか、あるコールの後に何が残るか）が書かれています。そこから採ったのは、ゲームから見える事実だけです（`$10FE84` のハートビート、`$10F749` のカウンタ、Z80 RAM に置かれた CD-DA 要求が消去されること、など）。コードは採っていません。
 3. NeoRaine 1.4.3 本体の挙動。このエミュレータは ROM の決まった番地に特定のルーチンがあることを前提にしています。
-4. 5 本のゲームが BIOS をどう呼び、ROM のどの番地を読むかの観察。
+4. テストしたゲームが BIOS をどう呼び、ROM のどの番地を読むかの観察。
+   - バージョン 2.5 からは、ゲームが自前で持つファイルローダー（武士道烈伝の `EXT_SYS.PRG`）のコードを読むことも含みます。このローダーはゲームの一部であり、BIOS ではありません。そこから分かるのは、ローダーが RAM のどこに値を入れ、どこを待ち、セクタがどこに現れると期待しているかです。BIOS 側の動作は、それに合うように新しく書きました。セクタバッファの番地 `$111204` と `$10F688` のカウントダウンは、MAME の `neogeocd.cpp` のコメントにも書かれています。
 
 ## やっていないこと
 
 純正 BIOS のイメージは、**逆アセンブルも、トレースも、流用もしていません**。使い道は次の 2 つだけです。
 
-- ブラックボックスとしての比較。同じゲームに同じ入力を与え、出てくるものを見比べる。2.3 までは画面と、開かれる音声トラック。2.4 からは、サウンド CPU に届くコマンド、サウンドチップに渡されるサンプルの番地、実行後のサウンドプログラム用メモリとサンプル用メモリの内容も比べています。どれもゲームを動かした結果であり、BIOS のコードではありません。
+- ブラックボックスとしての比較。同じゲームに同じ入力を与え、出てくるものを見比べる。2.3 までは画面と、開かれる音声トラック。2.4 からは、サウンド CPU に届くコマンド、サウンドチップに渡されるサンプルの番地、実行後のサウンドプログラム用メモリとサンプル用メモリの内容も比べています。2.5 では、ゲームがどこまで進むかを見るために、メインメモリも一定間隔で書き出しました。どれもゲームを動かした結果であり、BIOS のコードではありません。プログラムカウンタを記録する道具は、この BIOS で動かすときにだけ使い、純正 BIOS では一度も使っていません。
 - 完成後の検査。出来上がったイメージとバイト単位で比較し、どれだけ似ているかを測る。
 
 ## 純正 ROM と一致する箇所とその理由
 
-`tools/similarity_check.py` に手元の参照 ROM を与えれば、同じ検査を再現できます。バージョン 2.4 を、作者の手元にある 2 つの参照イメージと比べた結果は次のとおりです。
+`tools/similarity_check.py` に手元の参照 ROM を与えれば、同じ検査を再現できます。バージョン 2.5 を、作者の手元にある 2 つの参照イメージと比べた結果は次のとおりです。
 
 | 項目 | 結果 |
 |---|---|
-| 使用中のコードのバイト数（数表を除く） | 7,559 |
-| 同じ番地で一致するバイト数 | 最大 59 |
-| 参照側のどこかにも現れる 12 バイト以上の並び | 最大 22 か所 |
+| 使用中のコードのバイト数（数表を除く） | 8,455 |
+| 同じ番地で一致するバイト数 | 最大 73 |
+| 参照側のどこかにも現れる 12 バイト以上の並び | 最大 26 か所 |
 
 共通の並びの内訳は次のとおりです。
 

@@ -30,6 +30,11 @@ assert len(font)==0x4000
 def swap(b):
     b=bytearray(b); b[0::2],b[1::2]=b[1::2],b[0::2]; return b
 img[0x7C000:0x80000]=swap(font)      # pre-swapped so the final file holds raw tile bytes
+# A second copy for games that fetch the system font through the CPU: they
+# upload 0x4000 bytes from this address to the text layer before they call
+# the loading screen hooks.
+assert not any(img[0x6BEB0:0x6FEB0])
+img[0x6BEB0:0x6FEB0]=font
 # sanity checks for the fixed interface points
 assert img[0xA822:0xA824]==b'\x4B\xF9'
 assert img[0x582:0x584]==b'\x4E\xF9'

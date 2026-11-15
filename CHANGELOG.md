@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.5
+
+Games that bring their own file loader. Found with Shinsetsu Samurai Spirits Bushidou Retsuden (Samurai Shodown RPG), which loads every file after the first boot through a loader on the disc instead of through the BIOS calls. What that loader expects from the system was worked out from the game's own code.
+
+- Fixed: the game stopped with an exception right after boot (NeoRaine 1.4.3) or never left the loading screen (hardware mode). Its loader reads the vertical blank vector from the ROM table and takes the long word two bytes into that routine as the address of the system's vertical blank service. The routine is now a plain absolute jump, so that address is valid.
+- New (hardware mode): the drive request queue at `$10F472` (indexes `$10F650` / `$10F651`). Request 9 reads sectors starting at the position in `$10F6C8`; requests 5 and 6 stop reading. Each sector is put into the buffer at `$111204` and the count at `$10F688` goes down by one. A sector is only delivered while the game says it is waiting (bit 0 of `$10F657`); otherwise the drive goes back for it. A request with a count of zero ends at once by clearing `$10F6B6`.
+- New (hardware mode): the position and length of the root directory are left in `$10F6A8` and `$10F6A6`, and a copy of the first 2 KiB of program memory is kept at `$110004`. Such a loader reads the directory itself and copies that block back over address 0 after each program file.
+- New: the loading screen hooks at `$11C808` and `$11C80C` and a default animation script at `$11C810` are set in every mode, and a second copy of the loading screen font sits at `$C6BEB0`, where such a loader fetches it.
+- Changed: the console type in `$10FEDF` is now 1 (top loader) instead of 2 (CDZ). With 2 this game expects the system to distribute the sectors to their destinations by itself, which is not implemented.
+- Changed: when a disc has more files than the directory cache holds (600), the files of a load list are now looked up in one pass over the directory instead of one pass per file.
+- Fixed: a request for a CD audio track that does not exist on the disc started playback at the very beginning of the disc. It is now ignored.
+
 ## 2.4
 
 Sound. Found by running the same games under an original BIOS and under this one in the same emulator, and comparing what reaches the sound hardware.

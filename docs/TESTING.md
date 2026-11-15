@@ -81,9 +81,27 @@ What this does not show:
 
 Regression for 2.4: seven discs and the self-test on the libretro core; The King of Fighters '94 into a fight on MAME 0.264; The King of Fighters '94 with audio on NeoRaine 1.4.3; Twinkle Star Sprites into a match with audio on Raine 0.98.
 
+## Version 2.5 (Samurai Shodown RPG)
+
+Shinsetsu Samurai Spirits Bushidou Retsuden, from a disc image without audio tracks, so nothing here says anything about its music.
+
+| Emulator | 2.4 | 2.5 |
+|---|---|---|
+| NeoCD libretro core | Never leaves the first loading screen; the machine resets in a loop | Character select, story select, opening battle and the first indoor scene, through several loads |
+| MAME 0.264 | not run | Intro, title, character select, opening battle |
+| NeoRaine 1.4.3 | Exception screen right after boot | Character select, story select, opening battle |
+| Raine 0.98 | not run | Intro and title menu. The run could not get further because the key for the A button was not found; whether a game can be started there is unknown |
+
+- With an original BIOS in the same libretro core, the game boots, and then resets in a loop after the start button. So there was no working reference to compare with, and what is described above is "the game runs", not "the game runs as on a console".
+- The game asks for one file (`!OGO0000.PRG`) that is on the disc under another name (`_OGO0000.PRG`). The request ends with nothing read. What a console does in that case is not known.
+- Not checked: saving, anything past the first indoor scene, the game's error screen.
+- The directory lookup change was checked with the 700-file Viewpoint disc and the self-test disc.
+
+Regression for 2.5: six games, Blue and Red, the 700-file disc and the self-test on the libretro core; The King of Fighters '94 to team select on MAME 0.264; The King of Fighters '94 to order select on NeoRaine 1.4.3. The other games were not run again on Raine 0.98.
+
 ## Not tested
 
-- Any game other than the five above
+- Any game other than the six above
 - Any game through to its ending
 - Raine versions between NeoRaine 1.4.3 and 0.98
 - FinalBurn Neo
@@ -173,9 +191,27 @@ Raine 0.98（64 ビット Windows 版を Wine 上で実行）で、メニュー�
 
 2.4 の回帰確認: libretro コアでディスク 7 枚と自己テスト。MAME 0.264 でザ・キング・オブ・ファイターズ'94 を対戦まで。NeoRaine 1.4.3 でザ・キング・オブ・ファイターズ'94 を音声付きで。Raine 0.98 でティンクルスタースプライツを音声付きで対戦まで。
 
+## バージョン 2.5（武士道烈伝）
+
+真説サムライスピリッツ 武士道烈伝。音声トラックを含まないディスクイメージで確認したため、BGM については何も確かめていません。
+
+| エミュレータ | 2.4 | 2.5 |
+|---|---|---|
+| NeoCD libretro コア | 最初のロード画面から進まず、リセットを繰り返す | キャラクター選択、物語選択、冒頭の戦闘、最初の屋内シーンまで。途中のロードも数回通過 |
+| MAME 0.264 | 未実行 | オープニング、タイトル、キャラクター選択、冒頭の戦闘 |
+| NeoRaine 1.4.3 | 起動直後に例外画面 | キャラクター選択、物語選択、冒頭の戦闘 |
+| Raine 0.98 | 未実行 | オープニングとタイトルメニューまで。A ボタンに当たるキーが分からず、その先は進めていません。ゲームを開始できるかは不明です |
+
+- 同じ libretro コアに純正 BIOS を入れた場合、起動はしますが、スタートボタンの後にリセットを繰り返します。比較できる正常動作の手本がないため、上の結果は「ゲームが動く」であって「実機と同じに動く」ではありません。
+- ゲームが要求するファイルのうち 1 つ（`!OGO0000.PRG`）は、ディスク上では別名（`_OGO0000.PRG`）になっています。この要求は何も読まずに終わります。実機がこのときどう動くかは分かっていません。
+- 未確認: セーブ、最初の屋内シーンより先、ゲーム自身のエラー画面。
+- ディレクトリ検索の変更は、700 ファイル入りのビューポイントと自己テストディスクで確認しました。
+
+2.5 の回帰確認: libretro コアでゲーム 6 本、Blue and Red、700 ファイルのディスク、自己テスト。MAME 0.264 でザ・キング・オブ・ファイターズ'94 をチーム選択まで。NeoRaine 1.4.3 でザ・キング・オブ・ファイターズ'94 を順番選択まで。Raine 0.98 では他のゲームを再実行していません。
+
 ## 未検証
 
-- 上の 5 本以外のゲーム
+- 上の 6 本以外のゲーム
 - 各ゲームのエンディングまでの通しプレイ
 - NeoRaine 1.4.3 と 0.98 の間の Raine
 - FinalBurn Neo
