@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6
+
+- Fixed: with Samurai Shodown RPG a progress bar could stay in the middle of the picture after a load (reported on a MAME-based system). The game's own loader calls the progress hook at `$11C80C` for every sector, also when it has not put up a loading screen, and the hook drew the bar regardless. In hardware mode it now draws only while a loading screen is up: the BIOS's own, or one the game announced in `$10FDDC`.
+- New: a second image, `neocd_blank.bin` (`python3 build.py --blank`). Its loading screen is plain black: no text, no bar, no animation. Everything else is identical. It does not load any faster; the drive sets the pace.
+
 ## 2.5
 
 Games that bring their own file loader. Found with Shinsetsu Samurai Spirits Bushidou Retsuden (Samurai Shodown RPG), which loads every file after the first boot through a loader on the disc instead of through the BIOS calls. What that loader expects from the system was worked out from the game's own code.

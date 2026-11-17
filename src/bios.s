@@ -176,7 +176,7 @@ rom_start:
 | Identification
 |---------------------------------------------------------------------------
         .org    0x100
-        .ascii  "OpenNCD BIOS 2.5 - clean-room CD system ROM for emulators. "
+        .ascii  "OpenNCD BIOS 2.6 - clean-room CD system ROM for emulators. "
         .ascii  "Original work, contains no SNK code. "
         .balign 2
 
@@ -1159,12 +1159,14 @@ load_screen_init:
         move.w  #40*32-1,d0
 1:      move.w  #0x0020,VRAM_RW
         dbra    d0,1b
+        .ifndef LS_BLANK
         lea     ls_text(pc),a0
         move.w  #0x7000+15*32+LS_ROW,d0
         bsr     ls_print
         lea     ls_name(pc),a0
         move.w  #0x7000+14*32+26,d0
         bsr     ls_print
+        .endif
         clr.w   PV_ANIM
         moveq   #0,d0
         bsr     ls_bar
@@ -1189,17 +1191,29 @@ ls_default_anim:
         .word   0x7000+38*32+27, 1, 1, 1, 30
         .word   0x0020
 
+| Games with their own loader call this for every sector, whether they have
+| put up a loading screen or not.  Only draw when one is showing: ours, the
+| emulator's, or one the game announced in 0x10FDDC.
 load_screen_progress:
-        movem.l d0-d2/a0,-(sp)
+        tst.b   LS_ACTIVE
+        bne     1f
+        tst.b   PV_HLE
+        bne     1f
+        tst.b   (0x10FDDC).l
+        beq     9f
+1:      movem.l d0-d2/a0,-(sp)
         moveq   #0,d0
         move.w  CD_PROGRESS,d0          | 0..0x80
         lsr.w   #2,d0
         bsr     ls_bar
         movem.l (sp)+,d0-d2/a0
-        rts
+9:      rts
 
 | d0 = number of filled cells
 ls_bar:
+        .ifdef  LS_BLANK
+        rts                             | blank variant: the screen stays black
+        .endif
         cmp.w   #LS_BARLEN,d0
         bls     1f
         moveq   #LS_BARLEN,d0
@@ -1216,6 +1230,9 @@ ls_bar:
         rts
 
 load_screen_anim:
+        .ifdef  LS_BLANK
+        rts
+        .endif
         movem.l d0-d2/a0,-(sp)
         move.w  PV_ANIM,d0
         addq.w  #1,d0

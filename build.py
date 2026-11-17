@@ -13,6 +13,8 @@ AS='m68k-linux-gnu-as'; LD='m68k-linux-gnu-ld'
 def run(*a): subprocess.check_call(a)
 obj=os.path.join(OUT,'bios.o'); raw=os.path.join(OUT,'bios.raw')
 defs=[x for x in sys.argv[1:] if x.startswith('--defsym')]
+BLANK='--blank' in sys.argv[1:]      # variant whose loading screen stays black
+if BLANK: defs+=['--defsym','LS_BLANK=1']
 run(AS,'-I',os.path.join(ROOT,'src'),'-m68000','--register-prefix-optional',*defs,'-o',obj,'-a='+os.path.join(OUT,'bios.lst'),SRC)
 run(LD,'-Ttext=0xC00000','--oformat','binary','-e','0xC00000','-o',raw,obj)
 img=bytearray(open(raw,'rb').read())
@@ -49,6 +51,7 @@ l=[x for x in find_all(bytes.fromhex('2B7C00004000'),0x70000)]; assert len(l)==1
 cp=struct.unpack('>I',img[0x560:0x564])[0]-0xC00000+0x10
 assert any(img[cp+k:cp+k+4]==bytes.fromhex('1B7C0002') for k in range(0,0x20,2))
 assert all(img[k:k+2]!=b'\x4E\x75' for k in (0xB00C,0xB00E,0xB016,0xB018,0xB01E,0xB020)), 'jump address looks like rts'
-open(os.path.join(OUT,'neocd_be.bin'),'wb').write(img)
-open(os.path.join(OUT,'neocd.bin'),'wb').write(swap(img))
+SUF='_blank' if BLANK else ''
+open(os.path.join(OUT,'neocd%s_be.bin'%SUF),'wb').write(img)
+open(os.path.join(OUT,'neocd%s.bin'%SUF),'wb').write(swap(img))
 print('built',len(img),'bytes; code end',hex(len(open(raw,'rb').read())))

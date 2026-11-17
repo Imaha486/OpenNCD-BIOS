@@ -12,7 +12,7 @@
 
 ## 対応状況
 
-バージョン 2.5。同じ 512KB のイメージが 2 種類のエミュレータで動き、どちらのモードで動くかは自動で判定します。
+バージョン 2.6。同じ 512KB のイメージが 2 種類のエミュレータで動き、どちらのモードで動くかは自動で判定します。
 
 | エミュレータ | モード | 結果 |
 |---|---|---|
@@ -27,7 +27,7 @@
 
 ## 入手と使い方
 
-[Releases](../../releases) から `neocd.bin` をダウンロードするか、下の手順で自分でビルドします。エミュレータごとの設定は [docs/EMULATORS.md](docs/EMULATORS.md) にあります。要点だけ書くと:
+[Releases](../../releases) から `neocd.bin` をダウンロードするか、下の手順で自分でビルドします。同梱の `neocd_blank.bin` は、ロード画面が真っ黒になるだけで中身は同じ BIOS です。使うときは `neocd.bin` に名前を変えてください。エミュレータごとの設定は [docs/EMULATORS.md](docs/EMULATORS.md) にあります。要点だけ書くと:
 
 - **MAME**: `roms/neocdz/neocd.bin` として置きます。チェックサムの警告が出ますがそのまま動きます。MAME は `000-lo.lo` も要求しますが、このプロジェクトでは提供しません。
 - **RetroArch（NeoCD コア）**: `system/neocd/` に置き、コアオプションで選びます。
@@ -44,6 +44,7 @@ Python 3 と、GNU binutils の m68k 版が必要です。
 ```sh
 sudo apt install binutils-m68k-linux-gnu    # Debian / Ubuntu
 python3 build.py                            # または make
+python3 build.py --blank                    # ロード画面が真っ黒な版
 ```
 
 `out/` に 2 つのファイルができます。

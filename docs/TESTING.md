@@ -99,6 +99,12 @@ Shinsetsu Samurai Spirits Bushidou Retsuden, from a disc image without audio tra
 
 Regression for 2.5: six games, Blue and Red, the 700-file disc and the self-test on the libretro core; The King of Fighters '94 to team select on MAME 0.264; The King of Fighters '94 to order select on NeoRaine 1.4.3. The other games were not run again on Raine 0.98.
 
+## Version 2.6 (stray progress bar, blank variant)
+
+- Samurai Shodown RPG on the libretro core, 9000 frames with the same input: with 2.5 a grey bar is drawn across the middle of the picture during a later load and stays for about a second after the loading screen has gone; with 2.6 it does not appear. The report came from a MAME-based system where the bar stayed for good; that system was not available, so the fix is confirmed only on the core.
+- `neocd_blank.bin`: the first load and the in-game loads of the same run show a black picture and take the same number of frames as the standard image (measured in 5-frame steps: Samurai Shodown RPG, The King of Fighters '94, Viewpoint).
+- Regression, both images: six games, Blue and Red, the 700-file disc and the self-test on the libretro core; The King of Fighters '94 to order select on NeoRaine 1.4.3. Standard image only: The King of Fighters '94 to team select on MAME 0.264. Raine 0.98 was not run.
+
 ## Not tested
 
 - Any game other than the six above
@@ -208,6 +214,12 @@ Raine 0.98（64 ビット Windows 版を Wine 上で実行）で、メニュー�
 - ディレクトリ検索の変更は、700 ファイル入りのビューポイントと自己テストディスクで確認しました。
 
 2.5 の回帰確認: libretro コアでゲーム 6 本、Blue and Red、700 ファイルのディスク、自己テスト。MAME 0.264 でザ・キング・オブ・ファイターズ'94 をチーム選択まで。NeoRaine 1.4.3 でザ・キング・オブ・ファイターズ'94 を順番選択まで。Raine 0.98 では他のゲームを再実行していません。
+
+## バージョン 2.6（残る進捗バー、ブランク版）
+
+- 武士道烈伝を libretro コアで同じ入力のまま 9000 フレーム実行。2.5 では、途中のロードで画面中央に灰色のバーが描かれ、ロード画面が消えた後も 1 秒ほど残ります。2.6 では出ません。報告は MAME ベースの機器で「バーが出たままになる」というものでしたが、その機器は手元にないため、修正を確認できたのはコア上だけです。
+- `neocd_blank.bin`: 同じ実行で、最初のロードもゲーム中のロードも黒い画面になり、かかるフレーム数は通常版と同じでした（5 フレーム刻みで計測。武士道烈伝、ザ・キング・オブ・ファイターズ'94、ビューポイント）。
+- 回帰確認（両方のイメージ）: libretro コアでゲーム 6 本、Blue and Red、700 ファイルのディスク、自己テスト。NeoRaine 1.4.3 でザ・キング・オブ・ファイターズ'94 を順番選択まで。通常版のみ: MAME 0.264 でザ・キング・オブ・ファイターズ'94 をチーム選択まで。Raine 0.98 は実行していません。
 
 ## 未検証
 

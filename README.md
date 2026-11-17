@@ -12,7 +12,7 @@ It is meant for emulators only. It has never been run on a real console.
 
 ## Status
 
-Version 2.5. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
+Version 2.6. The same 512 KB image works in two kinds of emulator and picks the right mode by itself:
 
 | Emulator | Mode | Result |
 |---|---|---|
@@ -27,7 +27,7 @@ The six test games are Viewpoint, The King of Fighters '94, Flying Power Disc (W
 
 ## Getting it
 
-Download `neocd.bin` from the [Releases](../../releases) page, or build it yourself (below). Setup for each emulator is in [docs/EMULATORS.md](docs/EMULATORS.md); in short:
+Download `neocd.bin` from the [Releases](../../releases) page, or build it yourself (below). `neocd_blank.bin` in the same download is the same BIOS with a plain black loading screen; rename it to `neocd.bin` to use it. Setup for each emulator is in [docs/EMULATORS.md](docs/EMULATORS.md); in short:
 
 - **MAME**: put it at `roms/neocdz/neocd.bin`. MAME warns about the checksum and runs anyway. MAME also wants `000-lo.lo`, which this project does not provide.
 - **RetroArch (NeoCD core)**: put it in `system/neocd/` and select it in the core options.
@@ -44,6 +44,7 @@ You need Python 3 and the m68k build of GNU binutils.
 ```sh
 sudo apt install binutils-m68k-linux-gnu    # Debian / Ubuntu
 python3 build.py                            # or: make
+python3 build.py --blank                    # variant with a black loading screen
 ```
 
 This writes two files to `out/`:
